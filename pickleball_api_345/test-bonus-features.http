@@ -1,0 +1,70 @@
+### Test VNPay Payment Creation
+POST http://localhost:58377/api/payment/vnpay/create
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "memberId": 1,
+  "amount": 100000,
+  "description": "Test nạp tiền ví"
+}
+
+### Test QR Code Generation
+POST http://localhost:58377/api/payment/qr-code/generate
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "memberId": 1,
+  "amount": 50000,
+  "description": "Test QR nạp tiền"
+}
+
+### Test Revenue Report Data
+GET http://localhost:58377/api/reports/revenue?fromDate=2024-01-01&toDate=2024-12-31
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Test Member Report Data
+GET http://localhost:58377/api/reports/members
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Test Export Revenue Report (Excel)
+GET http://localhost:58377/api/reports/revenue/export?fromDate=2024-01-01&toDate=2024-12-31&format=excel
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Test Export Member List (Excel)
+GET http://localhost:58377/api/reports/members/export?format=excel
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Test Chat Room Access
+GET http://localhost:58377/api/chat/tournament/1/room
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+### Test Send Chat Message
+POST http://localhost:58377/api/chat/send
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "tournamentId": 1,
+  "message": "Hello from API test!",
+  "messageType": "text"
+}
+
+### Test Concurrency Booking
+POST http://localhost:58377/api/booking/concurrent
+Content-Type: application/json
+Authorization: Bearer YOUR_JWT_TOKEN_HERE
+
+{
+  "courtId": 1,
+  "startTime": "2024-12-30T10:00:00",
+  "endTime": "2024-12-30T11:00:00",
+  "notes": "Test concurrent booking"
+}
+
+### Test Payment Success Page
+GET http://localhost:58377/api/payment/test-success
+
+### Test Payment Failure Page
+GET http://localhost:58377/api/payment/test-failure

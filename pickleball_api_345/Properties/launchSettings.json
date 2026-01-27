@@ -1,0 +1,12 @@
+{
+  "profiles": {
+    "pickleball_api_345": {
+      "commandName": "Project",
+      "launchBrowser": true,
+      "environmentVariables": {
+        "ASPNETCORE_ENVIRONMENT": "Development"
+      },
+      "applicationUrl": "https://localhost:58376;http://localhost:58377"
+    }
+  }
+}

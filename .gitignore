@@ -1,0 +1,38 @@
+# Flutter
+pcm_flutter_345/build/
+pcm_flutter_345/.dart_tool/
+pcm_flutter_345/.flutter-plugins
+pcm_flutter_345/.flutter-plugins-dependencies
+pcm_flutter_345/.packages
+pcm_flutter_345/.pub-cache/
+pcm_flutter_345/.pub/
+pcm_flutter_345/pubspec.lock
+
+# ASP.NET Core
+pickleball_api_345/bin/
+pickleball_api_345/obj/
+pickleball_api_345/.vs/
+pickleball_api_345/*.user
+pickleball_api_345/appsettings.Development.json
+
+# Database
+*.db
+*.db-shm
+*.db-wal
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+*.temp
