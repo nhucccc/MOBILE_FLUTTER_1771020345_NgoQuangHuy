@@ -173,9 +173,13 @@ class ApiService {
     required DateTime to,
   }) async {
     try {
+      // Convert to UTC to match backend expectations
+      final utcFrom = from.toUtc();
+      final utcTo = to.toUtc();
+      
       final response = await _dio.get('/booking/calendar', queryParameters: {
-        'from': from.toIso8601String(),
-        'to': to.toIso8601String(),
+        'from': utcFrom.toIso8601String(),
+        'to': utcTo.toIso8601String(),
       });
       return List<Map<String, dynamic>>.from(response.data);
     } on DioException catch (e) {
@@ -195,13 +199,19 @@ class ApiService {
         print('ApiService: Token preview: ${token.substring(0, 20)}...');
       }
       
+      // Convert to UTC to match backend expectations
+      final utcStartTime = startTime.toUtc();
+      final utcEndTime = endTime.toUtc();
+      
       final requestData = {
         'CourtId': courtId,  // Viết hoa C để match với backend DTO
-        'StartTime': startTime.toIso8601String(),  // Viết hoa S
-        'EndTime': endTime.toIso8601String(),  // Viết hoa E
+        'StartTime': utcStartTime.toIso8601String(),  // Viết hoa S
+        'EndTime': utcEndTime.toIso8601String(),  // Viết hoa E
       };
       
       print('ApiService: Creating booking with data: $requestData');
+      print('ApiService: Local start time: ${startTime.toIso8601String()}');
+      print('ApiService: UTC start time: ${utcStartTime.toIso8601String()}');
       print('ApiService: Making request to: ${_dio.options.baseUrl}/booking');
       
       final response = await _dio.post('/booking', data: requestData);
@@ -224,12 +234,17 @@ class ApiService {
     required DateTime endDate,
   }) async {
     try {
+      // Convert to UTC to match backend expectations
+      final utcStartTime = startTime.toUtc();
+      final utcEndTime = endTime.toUtc();
+      final utcEndDate = endDate.toUtc();
+      
       final response = await _dio.post('/booking/recurring', data: {
         'CourtId': courtId,  // Viết hoa C
-        'StartTime': startTime.toIso8601String(),  // Viết hoa S
-        'EndTime': endTime.toIso8601String(),  // Viết hoa E
+        'StartTime': utcStartTime.toIso8601String(),  // Viết hoa S
+        'EndTime': utcEndTime.toIso8601String(),  // Viết hoa E
         'RecurrenceRule': recurrenceRule,  // Viết hoa R
-        'EndDate': endDate.toIso8601String(),  // Viết hoa E
+        'EndDate': utcEndDate.toIso8601String(),  // Viết hoa E
       });
       return response.data;
     } on DioException catch (e) {
@@ -267,10 +282,14 @@ class ApiService {
     required DateTime endTime,
   }) async {
     try {
+      // Convert to UTC to match backend expectations
+      final utcStartTime = startTime.toUtc();
+      final utcEndTime = endTime.toUtc();
+      
       final response = await _dio.get('/booking/check-availability', queryParameters: {
         'courtId': courtId,  // Query parameters thường viết thường
-        'startTime': startTime.toIso8601String(),
-        'endTime': endTime.toIso8601String(),
+        'startTime': utcStartTime.toIso8601String(),
+        'endTime': utcEndTime.toIso8601String(),
       });
       return response.data['isAvailable'] ?? false;
     } on DioException catch (e) {

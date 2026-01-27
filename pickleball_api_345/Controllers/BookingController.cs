@@ -41,24 +41,35 @@ public class BookingController : ControllerBase
     public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto request)
     {
         if (!ModelState.IsValid)
-            return BadRequest(ModelState);
+        {
+            var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
+            return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
+        }
 
         var memberId = await GetCurrentMemberIdAsync();
         if (memberId == null)
-            return BadRequest("Member not found");
+            return BadRequest(new { message = "Member not found" });
+
+        // Log request data for debugging
+        Console.WriteLine($"CreateBooking Request - CourtId: {request.CourtId}, StartTime: {request.StartTime}, EndTime: {request.EndTime}");
+        Console.WriteLine($"UTC StartTime: {request.StartTime:yyyy-MM-dd HH:mm:ss}, Local StartTime: {request.StartTime.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
 
         // Validate booking time
         if (request.StartTime >= request.EndTime)
-            return BadRequest("Thời gian kết thúc phải sau thời gian bắt đầu");
+            return BadRequest(new { message = "Thời gian kết thúc phải sau thời gian bắt đầu" });
 
-        // Allow booking at least 30 minutes in advance
-        var minimumBookingTime = DateTime.UtcNow.AddMinutes(30);
-        if (request.StartTime <= minimumBookingTime)
-            return BadRequest($"Không thể đặt sân trong quá khứ hoặc quá gần hiện tại. Vui lòng đặt ít nhất 30 phút trước. Hiện tại: {DateTime.UtcNow:yyyy-MM-dd HH:mm}, Thời gian đặt: {request.StartTime:yyyy-MM-dd HH:mm}");
+        // Convert UTC time to local time for validation
+        var localStartTime = request.StartTime.ToLocalTime();
+        var localNow = DateTime.Now;
+        
+        // Allow booking at least 30 minutes in advance (using local time)
+        var minimumBookingTime = localNow.AddMinutes(30);
+        if (localStartTime <= minimumBookingTime)
+            return BadRequest(new { message = $"Không thể đặt sân trong quá khứ hoặc quá gần hiện tại. Vui lòng đặt ít nhất 30 phút trước. Hiện tại: {localNow:yyyy-MM-dd HH:mm}, Thời gian đặt: {localStartTime:yyyy-MM-dd HH:mm}" });
 
         var booking = await _bookingService.CreateBookingAsync(memberId.Value, request);
         if (booking == null)
-            return BadRequest("Không thể đặt sân. Vui lòng kiểm tra số dư ví hoặc tình trạng sân");
+            return BadRequest(new { message = "Không thể đặt sân. Vui lòng kiểm tra số dư ví hoặc tình trạng sân" });
 
         return Ok(new { message = "Đặt sân thành công", booking });
     }

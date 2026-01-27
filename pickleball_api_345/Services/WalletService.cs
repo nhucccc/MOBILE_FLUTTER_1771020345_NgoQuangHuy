@@ -117,7 +117,7 @@ public class WalletService : IWalletService
 
     public async Task<bool> ProcessPaymentAsync(int memberId, decimal amount, TransactionType type, string? description = null, string? relatedId = null)
     {
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        // Remove nested transaction - use the existing transaction from BookingService
         try
         {
             var member = await _context.Members_345.FindAsync(memberId);
@@ -152,8 +152,7 @@ public class WalletService : IWalletService
             };
 
             _context.WalletTransactions_345.Add(walletTransaction);
-            await _context.SaveChangesAsync();
-            await transaction.CommitAsync();
+            // Don't call SaveChanges here - let the parent transaction handle it
             
             Console.WriteLine($"ProcessPayment - SUCCESS");
             return true;
@@ -161,7 +160,6 @@ public class WalletService : IWalletService
         catch (Exception ex)
         {
             Console.WriteLine($"ProcessPayment - EXCEPTION: {ex.Message}");
-            await transaction.RollbackAsync();
             return false;
         }
     }

@@ -7,6 +7,7 @@ import '../../models/booking.dart';
 import '../../theme/app_theme.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/animated_background.dart';
+import '../home/main_screen.dart';
 
 class CreateBookingScreen extends StatefulWidget {
   final DateTime selectedDate;
@@ -794,9 +795,32 @@ class _CreateBookingScreenState extends State<CreateBookingScreen>
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppTheme.spacing12),
+              if (_selectedCourt != null) ...[
+                Text(
+                  'Sân: ${_selectedCourt!.name}',
+                  style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.w600),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Thời gian: ${widget.selectedDate.day}/${widget.selectedDate.month}/${widget.selectedDate.year}',
+                  style: AppTheme.bodyMedium,
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  '${_startTime.format(context)} - ${_endTime.format(context)}',
+                  style: AppTheme.bodyMedium.copyWith(fontWeight: FontWeight.bold),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: AppTheme.spacing12),
+              ],
               Text(
-                'Booking của bạn đã được tạo thành công',
-                style: AppTheme.bodyMedium,
+                'Cảm ơn bạn đã sử dụng dịch vụ!',
+                style: AppTheme.bodySmall.copyWith(
+                  fontStyle: FontStyle.italic,
+                  color: Colors.grey[600],
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: AppTheme.spacing24),
@@ -805,9 +829,10 @@ class _CreateBookingScreenState extends State<CreateBookingScreen>
                 child: ElevatedButton(
                   onPressed: () {
                     Navigator.of(context).pop(); // Close dialog
-                    Navigator.of(context).pop(); // Close screen
+                    // Quay về trang chủ bằng cách pop tất cả
+                    Navigator.of(context).popUntil((route) => route.isFirst);
                   },
-                  child: const Text('Hoàn tất'),
+                  child: const Text('Về trang chủ'),
                 ),
               ),
             ],

@@ -46,6 +46,90 @@ public class TestController : ControllerBase
         });
     }
 
+    [HttpGet("debug-user/{email}")]
+    public async Task<IActionResult> DebugUser(string email)
+    {
+        try
+        {
+            var user = await _userManager.FindByEmailAsync(email);
+            if (user == null)
+                return NotFound(new { message = "User not found" });
+
+            var member = await _context.Members_345.FirstOrDefaultAsync(m => m.UserId == user.Id);
+            
+            return Ok(new { 
+                user = new {
+                    id = user.Id,
+                    email = user.Email,
+                    emailConfirmed = user.EmailConfirmed
+                },
+                member = member == null ? null : new {
+                    id = member.Id,
+                    fullName = member.FullName,
+                    walletBalance = member.WalletBalance,
+                    isActive = member.IsActive,
+                    tier = member.Tier.ToString()
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message });
+        }
+    }
+    [HttpPost("test-booking")]
+    public async Task<IActionResult> TestBooking()
+    {
+        try
+        {
+            // Find test user
+            var testUser = await _userManager.FindByEmailAsync("huy@example.com");
+            if (testUser == null)
+                return BadRequest("Test user not found");
+
+            var member = await _context.Members_345.FirstOrDefaultAsync(m => m.UserId == testUser.Id);
+            if (member == null)
+                return BadRequest("Test member not found");
+
+            // Get first court
+            var court = await _context.Courts_345.FirstOrDefaultAsync(c => c.IsActive);
+            if (court == null)
+                return BadRequest("No active court found");
+
+            // Test booking for tomorrow 10:00-11:00
+            var tomorrow = DateTime.Now.AddDays(1);
+            var startTime = new DateTime(tomorrow.Year, tomorrow.Month, tomorrow.Day, 10, 0, 0);
+            var endTime = new DateTime(tomorrow.Year, tomorrow.Month, tomorrow.Day, 11, 0, 0);
+
+            return Ok(new {
+                message = "Test data ready",
+                user = new { id = testUser.Id, email = testUser.Email },
+                member = new { 
+                    id = member.Id, 
+                    fullName = member.FullName, 
+                    walletBalance = member.WalletBalance,
+                    isActive = member.IsActive
+                },
+                court = new { 
+                    id = court.Id, 
+                    name = court.Name, 
+                    pricePerHour = court.PricePerHour,
+                    isActive = court.IsActive
+                },
+                testBooking = new {
+                    startTime = startTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    endTime = endTime.ToString("yyyy-MM-dd HH:mm:ss"),
+                    duration = (endTime - startTime).TotalHours,
+                    totalPrice = (decimal)((endTime - startTime).TotalHours * (double)court.PricePerHour)
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { error = ex.Message, stackTrace = ex.StackTrace });
+        }
+    }
+
     [HttpPost("seed-data")]
     public async Task<IActionResult> SeedData()
     {

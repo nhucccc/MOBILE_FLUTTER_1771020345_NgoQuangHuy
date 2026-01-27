@@ -107,6 +107,8 @@ class BookingProvider with ChangeNotifier {
       print('Court ID: $courtId');
       print('Start: ${startTime.toIso8601String()}');
       print('End: ${endTime.toIso8601String()}');
+      print('Start UTC: ${startTime.toUtc().toIso8601String()}');
+      print('End UTC: ${endTime.toUtc().toIso8601String()}');
       
       if (isRecurring && recurrenceRule != null && recurringEndDate != null) {
         await _apiService.createRecurringBooking(

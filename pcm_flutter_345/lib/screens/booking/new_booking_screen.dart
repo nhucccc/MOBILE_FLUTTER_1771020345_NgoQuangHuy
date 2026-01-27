@@ -7,6 +7,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/animated_background.dart';
 import 'recurring_booking_screen.dart';
+import '../home/main_screen.dart';
 
 class NewBookingScreen extends StatefulWidget {
   final DateTime? selectedDate;
@@ -797,14 +798,76 @@ class _NewBookingScreenState extends State<NewBookingScreen>
       );
 
       if (success && mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(
-            content: Text('🎉 Đặt sân thành công!'),
-            backgroundColor: Colors.green,
-            duration: Duration(seconds: 3),
-          ),
+        // Hiển thị dialog thành công
+        await showDialog(
+          context: context,
+          barrierDismissible: false,
+          builder: (BuildContext context) {
+            return AlertDialog(
+              icon: const Icon(
+                Icons.check_circle,
+                color: Colors.green,
+                size: 64,
+              ),
+              title: const Text(
+                '🎉 Đặt sân thành công!',
+                style: TextStyle(
+                  fontSize: 24,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.green,
+                ),
+                textAlign: TextAlign.center,
+              ),
+              content: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    'Sân: ${_selectedCourt!.name}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    'Thời gian: ${startDateTime.day}/${startDateTime.month}/${startDateTime.year}',
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_startTime.format(context)} - ${_endTime.format(context)}',
+                    style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                  const SizedBox(height: 16),
+                  const Text(
+                    'Cảm ơn bạn đã sử dụng dịch vụ!',
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontStyle: FontStyle.italic,
+                      color: Colors.grey,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(); // Đóng dialog
+                    // Quay về trang chủ bằng cách pop tất cả
+                    Navigator.of(context).popUntil((route) => route.isFirst);
+                  },
+                  style: TextButton.styleFrom(
+                    backgroundColor: Colors.green,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
+                  ),
+                  child: const Text(
+                    'Về trang chủ',
+                    style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            );
+          },
         );
-        Navigator.of(context).pop();
       }
     } catch (e) {
       print('Booking error: $e'); // Debug log

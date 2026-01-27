@@ -53,6 +53,9 @@ public class BookingService : IBookingService
 
     public async Task<BookingDto?> CreateBookingAsync(int memberId, CreateBookingDto request)
     {
+        Console.WriteLine($"CreateBookingAsync - Starting with memberId: {memberId}");
+        Console.WriteLine($"CreateBookingAsync - CourtId: {request.CourtId}, StartTime: {request.StartTime}, EndTime: {request.EndTime}");
+        
         using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
@@ -66,8 +69,12 @@ public class BookingService : IBookingService
                 {
                     // Check court availability
                     var isAvailable = await IsCourtAvailableAsync(request.CourtId, request.StartTime, request.EndTime);
+                    Console.WriteLine($"CreateBookingAsync - Court available: {isAvailable}");
                     if (!isAvailable)
+                    {
+                        Console.WriteLine($"CreateBookingAsync - FAILED: Court not available");
                         return null;
+                    }
 
                     // Double-check availability right before creating booking
                     var conflictingBookings = await _context.Bookings_345
@@ -77,13 +84,18 @@ public class BookingService : IBookingService
                                    b.EndTime > request.StartTime)
                         .ToListAsync();
 
+                    Console.WriteLine($"CreateBookingAsync - Conflicting bookings count: {conflictingBookings.Count}");
                     if (conflictingBookings.Any())
+                    {
+                        Console.WriteLine($"CreateBookingAsync - FAILED: Conflicting bookings found");
                         return null; // Conflict detected
+                    }
 
                     break; // No conflict, proceed
                 }
-                catch (DbUpdateConcurrencyException)
+                catch (DbUpdateConcurrencyException ex)
                 {
+                    Console.WriteLine($"CreateBookingAsync - Concurrency exception: {ex.Message}");
                     retryCount++;
                     if (retryCount >= maxRetries)
                         throw;
@@ -95,11 +107,17 @@ public class BookingService : IBookingService
 
             // Get court and calculate price
             var court = await _context.Courts_345.FindAsync(request.CourtId);
+            Console.WriteLine($"CreateBookingAsync - Court found: {court != null}");
+            Console.WriteLine($"CreateBookingAsync - Court active: {court?.IsActive}");
             if (court == null || !court.IsActive)
+            {
+                Console.WriteLine($"CreateBookingAsync - FAILED: Court not found or inactive");
                 return null;
+            }
 
             var duration = (request.EndTime - request.StartTime).TotalHours;
             var totalPrice = (decimal)(duration * (double)court.PricePerHour);
+            Console.WriteLine($"CreateBookingAsync - Duration: {duration} hours, Total price: {totalPrice}");
 
             // Process payment
             var paymentSuccess = await _walletService.ProcessPaymentAsync(
@@ -109,8 +127,12 @@ public class BookingService : IBookingService
                 $"Đặt sân {court.Name} - {request.StartTime:dd/MM/yyyy HH:mm}"
             );
 
+            Console.WriteLine($"CreateBookingAsync - Payment success: {paymentSuccess}");
             if (!paymentSuccess)
+            {
+                Console.WriteLine($"CreateBookingAsync - FAILED: Payment failed");
                 return null;
+            }
 
             // Create booking
             var booking = new Booking_345
@@ -127,6 +149,8 @@ public class BookingService : IBookingService
             _context.Bookings_345.Add(booking);
             await _context.SaveChangesAsync();
             await transaction.CommitAsync();
+
+            Console.WriteLine($"CreateBookingAsync - SUCCESS: Booking created with ID: {booking.Id}");
 
             return new BookingDto
             {
@@ -148,8 +172,10 @@ public class BookingService : IBookingService
                 }
             };
         }
-        catch
+        catch (Exception ex)
         {
+            Console.WriteLine($"CreateBookingAsync - EXCEPTION: {ex.Message}");
+            Console.WriteLine($"CreateBookingAsync - Stack trace: {ex.StackTrace}");
             await transaction.RollbackAsync();
             return null;
         }
