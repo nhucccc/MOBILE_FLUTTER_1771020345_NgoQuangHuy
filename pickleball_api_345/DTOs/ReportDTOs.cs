@@ -53,10 +53,10 @@ public class TournamentReportDto
     public int TotalParticipants { get; set; }
     public decimal TotalRevenue { get; set; }
     public decimal PrizePool { get; set; }
-    public List<TournamentParticipantDto> Participants { get; set; } = new();
+    public List<TournamentReportParticipantDto> Participants { get; set; } = new();
 }
 
-public class TournamentParticipantDto
+public class TournamentReportParticipantDto
 {
     public string FullName { get; set; } = string.Empty;
     public string Email { get; set; } = string.Empty;

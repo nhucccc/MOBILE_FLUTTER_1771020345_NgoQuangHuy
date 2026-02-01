@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
@@ -6,6 +7,7 @@ using pickleball_api_345.Data;
 using pickleball_api_345.Hubs;
 using pickleball_api_345.Models;
 using pickleball_api_345.Services;
+using pickleball_api_345.Authorization;
 using System.Text;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -71,19 +73,76 @@ builder.Services.AddAuthentication(options =>
 // SignalR
 builder.Services.AddSignalR();
 
+// Memory Cache for slot reservations
+builder.Services.AddMemoryCache();
+
 // Services
 builder.Services.AddScoped<IWalletService, WalletService>();
+builder.Services.AddScoped<IWalletSyncService, WalletSyncService>();
 builder.Services.AddScoped<IBookingService, BookingService>();
+builder.Services.AddScoped<ISlotReservationService, SlotReservationService>();
 builder.Services.AddScoped<INotificationService, NotificationService>();
 builder.Services.AddScoped<IPaymentService, VnPayService>();
 builder.Services.AddScoped<IReportService, ReportService>();
 builder.Services.AddScoped<IConcurrencyService, ConcurrencyService>();
 builder.Services.AddScoped<IChatService, ChatService>();
 builder.Services.AddScoped<ITournamentSchedulerService, TournamentSchedulerService>();
+builder.Services.AddScoped<ITournamentService, TournamentService>();
+
+// Authorization Handlers
+builder.Services.AddScoped<IAuthorizationHandler, TierAuthorizationHandler>();
+builder.Services.AddScoped<IAuthorizationHandler, RoleAuthorizationHandler>();
+
+// Authorization Policies
+builder.Services.AddAuthorization(options =>
+{
+    // Role-based policies
+    options.AddPolicy(PolicyConstants.RequireAdminRole, policy =>
+        policy.Requirements.Add(new RoleRequirement(RoleConstants.Admin)));
+    
+    options.AddPolicy(PolicyConstants.RequireTreasurerRole, policy =>
+        policy.Requirements.Add(new RoleRequirement(RoleConstants.Treasurer)));
+    
+    options.AddPolicy(PolicyConstants.RequireRefereeRole, policy =>
+        policy.Requirements.Add(new RoleRequirement(RoleConstants.Referee)));
+    
+    options.AddPolicy(PolicyConstants.RequireMemberRole, policy =>
+        policy.Requirements.Add(new RoleRequirement(RoleConstants.Member)));
+
+    // Tier-based policies
+    options.AddPolicy(PolicyConstants.RequireVipTier, policy =>
+        policy.Requirements.Add(new TierRequirement(MemberTier.Silver)));
+    
+    options.AddPolicy(PolicyConstants.RequireGoldTier, policy =>
+        policy.Requirements.Add(new TierRequirement(MemberTier.Gold)));
+    
+    options.AddPolicy(PolicyConstants.RequireDiamondTier, policy =>
+        policy.Requirements.Add(new TierRequirement(MemberTier.Diamond)));
+
+    // Feature-based policies
+    options.AddPolicy(PolicyConstants.CanCreateRecurringBooking, policy =>
+        policy.Requirements.Add(new TierRequirement(MemberTier.Gold)));
+    
+    options.AddPolicy(PolicyConstants.CanApproveDeposits, policy =>
+        policy.RequireRole(RoleConstants.Admin, RoleConstants.Treasurer));
+    
+    options.AddPolicy(PolicyConstants.CanManageCourts, policy =>
+        policy.RequireRole(RoleConstants.Admin));
+    
+    options.AddPolicy(PolicyConstants.CanManageMembers, policy =>
+        policy.RequireRole(RoleConstants.Admin));
+    
+    options.AddPolicy(PolicyConstants.CanViewReports, policy =>
+        policy.RequireRole(RoleConstants.Admin, RoleConstants.Treasurer));
+    
+    options.AddPolicy(PolicyConstants.CanManageTournaments, policy =>
+        policy.RequireRole(RoleConstants.Admin, RoleConstants.Referee));
+});
 
 // Background Services
 builder.Services.AddHostedService<pickleball_api_345.Services.BackgroundServices.BookingCleanupService>();
 builder.Services.AddHostedService<pickleball_api_345.Services.BackgroundServices.TierUpdateService>();
+// Temporarily disabled: builder.Services.AddHostedService<pickleball_api_345.Services.BackgroundServices.SlotCleanupService>();
 
 // CORS
 builder.Services.AddCors(options =>

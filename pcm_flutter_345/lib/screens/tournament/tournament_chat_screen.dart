@@ -39,7 +39,7 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
   void dispose() {
     _messageController.dispose();
     _scrollController.dispose();
-    _signalRService.leaveGroup('Tournament_${widget.tournamentId}');
+    _signalRService.leaveTournamentGroup(widget.tournamentId);
     super.dispose();
   }
 
@@ -91,10 +91,10 @@ class _TournamentChatScreenState extends State<TournamentChatScreen> {
   }
 
   void _setupSignalR() {
-    _signalRService.joinGroup('Tournament_${widget.tournamentId}');
+    _signalRService.joinTournamentGroup(widget.tournamentId);
     
     // Listen for new messages
-    _signalRService.onNotificationReceived((data) {
+    _signalRService.notificationStream.listen((data) {
       if (data['type'] == 'chat_message') {
         final message = ChatMessage.fromJson(data['message']);
         setState(() {

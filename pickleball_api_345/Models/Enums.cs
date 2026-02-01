@@ -14,7 +14,9 @@ public enum TransactionType
     Withdraw = 1,
     Payment = 2,
     Refund = 3,
-    Reward = 4
+    Reward = 4,
+    TournamentFee = 5,
+    BookingPayment = 6
 }
 
 public enum TransactionStatus
@@ -53,7 +55,8 @@ public enum PaymentStatus
 {
     Pending = 0,
     Paid = 1,
-    Refunded = 2
+    Refunded = 2,
+    NotRequired = 3
 }
 
 public enum WinningSide

@@ -34,6 +34,40 @@ class _WalletScreenState extends State<WalletScreen> {
         child: SafeArea(
           child: Consumer<WalletProvider>(
             builder: (context, walletProvider, child) {
+              // Show loading state
+              if (walletProvider.isLoading) {
+                return const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      CircularProgressIndicator(),
+                      SizedBox(height: 16),
+                      Text('Đang tải dữ liệu ví...'),
+                    ],
+                  ),
+                );
+              }
+              
+              // Show error state
+              if (walletProvider.error != null) {
+                return Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(Icons.error, size: 64, color: AppTheme.errorColor),
+                      const SizedBox(height: 16),
+                      Text('Lỗi tải dữ liệu ví'),
+                      const SizedBox(height: 8),
+                      Text(walletProvider.error!, style: AppTheme.bodySmall),
+                      const SizedBox(height: 16),
+                      ElevatedButton(
+                        onPressed: () => walletProvider.refreshBalance(),
+                        child: const Text('Thử lại'),
+                      ),
+                    ],
+                  ),
+                );
+              }
               return CustomScrollView(
                 slivers: [
                   // Header

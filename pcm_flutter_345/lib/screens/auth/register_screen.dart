@@ -208,7 +208,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         controller: _phoneController,
                         keyboardType: TextInputType.phone,
                         decoration: InputDecoration(
-                          labelText: 'Số điện thoại (tùy chọn)',
+                          labelText: 'SĐT (tùy chọn)',
                           prefixIcon: const Icon(Icons.phone),
                           border: OutlineInputBorder(
                             borderRadius: BorderRadius.circular(8),

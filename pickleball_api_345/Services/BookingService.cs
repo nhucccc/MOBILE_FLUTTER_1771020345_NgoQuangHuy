@@ -1,7 +1,9 @@
+using Microsoft.AspNetCore.SignalR;
 using Microsoft.EntityFrameworkCore;
 using pickleball_api_345.Data;
 using pickleball_api_345.DTOs;
 using pickleball_api_345.Models;
+using pickleball_api_345.Hubs;
 
 namespace pickleball_api_345.Services;
 
@@ -9,11 +11,19 @@ public class BookingService : IBookingService
 {
     private readonly ApplicationDbContext _context;
     private readonly IWalletService _walletService;
+    private readonly IWalletSyncService _walletSyncService;
+    private readonly IHubContext<PcmHub> _hubContext;
 
-    public BookingService(ApplicationDbContext context, IWalletService walletService)
+    public BookingService(
+        ApplicationDbContext context, 
+        IWalletService walletService,
+        IWalletSyncService walletSyncService,
+        IHubContext<PcmHub> hubContext)
     {
         _context = context;
         _walletService = walletService;
+        _walletSyncService = walletSyncService;
+        _hubContext = hubContext;
     }
 
     public async Task<List<CourtDto>> GetCourtsAsync()
@@ -53,88 +63,47 @@ public class BookingService : IBookingService
 
     public async Task<BookingDto?> CreateBookingAsync(int memberId, CreateBookingDto request)
     {
-        Console.WriteLine($"CreateBookingAsync - Starting with memberId: {memberId}");
-        Console.WriteLine($"CreateBookingAsync - CourtId: {request.CourtId}, StartTime: {request.StartTime}, EndTime: {request.EndTime}");
-        
-        using var transaction = await _context.Database.BeginTransactionAsync();
+        using var transaction = await _context.Database.BeginTransactionAsync(System.Data.IsolationLevel.Serializable);
         try
         {
-            // Optimistic concurrency control - check availability with retry logic
-            var retryCount = 0;
-            const int maxRetries = 3;
-            
-            while (retryCount < maxRetries)
-            {
-                try
-                {
-                    // Check court availability
-                    var isAvailable = await IsCourtAvailableAsync(request.CourtId, request.StartTime, request.EndTime);
-                    Console.WriteLine($"CreateBookingAsync - Court available: {isAvailable}");
-                    if (!isAvailable)
-                    {
-                        Console.WriteLine($"CreateBookingAsync - FAILED: Court not available");
-                        return null;
-                    }
-
-                    // Double-check availability right before creating booking
-                    var conflictingBookings = await _context.Bookings_345
-                        .Where(b => b.CourtId == request.CourtId && 
-                                   b.Status == BookingStatus.Confirmed &&
-                                   b.StartTime < request.EndTime && 
-                                   b.EndTime > request.StartTime)
-                        .ToListAsync();
-
-                    Console.WriteLine($"CreateBookingAsync - Conflicting bookings count: {conflictingBookings.Count}");
-                    if (conflictingBookings.Any())
-                    {
-                        Console.WriteLine($"CreateBookingAsync - FAILED: Conflicting bookings found");
-                        return null; // Conflict detected
-                    }
-
-                    break; // No conflict, proceed
-                }
-                catch (DbUpdateConcurrencyException ex)
-                {
-                    Console.WriteLine($"CreateBookingAsync - Concurrency exception: {ex.Message}");
-                    retryCount++;
-                    if (retryCount >= maxRetries)
-                        throw;
-                    
-                    // Wait before retry
-                    await Task.Delay(100 * retryCount);
-                }
-            }
-
-            // Get court and calculate price
-            var court = await _context.Courts_345.FindAsync(request.CourtId);
-            Console.WriteLine($"CreateBookingAsync - Court found: {court != null}");
-            Console.WriteLine($"CreateBookingAsync - Court active: {court?.IsActive}");
+            // 1. Lock court to prevent concurrent bookings
+            var court = await _context.Courts_345
+                .FromSqlRaw("SELECT * FROM Courts_345 WITH (UPDLOCK) WHERE Id = {0}", request.CourtId)
+                .FirstOrDefaultAsync();
+                
             if (court == null || !court.IsActive)
-            {
-                Console.WriteLine($"CreateBookingAsync - FAILED: Court not found or inactive");
                 return null;
-            }
 
+            // 2. Check for conflicts with pessimistic locking
+            var hasConflict = await _context.Bookings_345
+                .AnyAsync(b => b.CourtId == request.CourtId && 
+                              b.Status == BookingStatus.Confirmed &&
+                              b.StartTime < request.EndTime && 
+                              b.EndTime > request.StartTime);
+                              
+            if (hasConflict)
+                return null;
+
+            // 3. Lock member wallet
+            var member = await _context.Members_345
+                .FromSqlRaw("SELECT * FROM Members_345 WITH (UPDLOCK) WHERE Id = {0}", memberId)
+                .FirstOrDefaultAsync();
+                
+            if (member == null)
+                return null;
+
+            // 4. Calculate price and check balance
             var duration = (request.EndTime - request.StartTime).TotalHours;
             var totalPrice = (decimal)(duration * (double)court.PricePerHour);
-            Console.WriteLine($"CreateBookingAsync - Duration: {duration} hours, Total price: {totalPrice}");
-
-            // Process payment
-            var paymentSuccess = await _walletService.ProcessPaymentAsync(
-                memberId, 
-                totalPrice, 
-                TransactionType.Payment, 
-                $"Đặt sân {court.Name} - {request.StartTime:dd/MM/yyyy HH:mm}"
-            );
-
-            Console.WriteLine($"CreateBookingAsync - Payment success: {paymentSuccess}");
-            if (!paymentSuccess)
-            {
-                Console.WriteLine($"CreateBookingAsync - FAILED: Payment failed");
+            
+            if (member.WalletBalance < totalPrice)
                 return null;
-            }
 
-            // Create booking
+            // 5. Deduct money atomically
+            member.WalletBalance -= totalPrice;
+            member.TotalSpent += totalPrice;
+
+            // 6. Create booking
             var booking = new Booking_345
             {
                 CourtId = request.CourtId,
@@ -145,12 +114,41 @@ public class BookingService : IBookingService
                 Status = BookingStatus.Confirmed,
                 IsRecurring = false
             };
-
             _context.Bookings_345.Add(booking);
+
+            // 7. Create wallet transaction record
+            var walletTransaction = new WalletTransaction_345
+            {
+                MemberId = memberId,
+                Amount = -totalPrice,
+                Type = TransactionType.Payment,
+                Status = TransactionStatus.Completed,
+                Description = $"Đặt sân {court.Name} - {request.StartTime:dd/MM/yyyy HH:mm}",
+                RelatedId = null, // Will be updated after booking is saved
+                CreatedDate = DateTime.UtcNow
+            };
+            _context.WalletTransactions_345.Add(walletTransaction);
+
+            // 8. Save all changes atomically
             await _context.SaveChangesAsync();
+            
+            // Update transaction with booking ID
+            walletTransaction.RelatedId = booking.Id.ToString();
+            await _context.SaveChangesAsync();
+            
             await transaction.CommitAsync();
 
-            Console.WriteLine($"CreateBookingAsync - SUCCESS: Booking created with ID: {booking.Id}");
+            // 9. Sync wallet balance in real-time
+            await _walletSyncService.NotifyWalletUpdateAsync(
+                memberId,
+                -totalPrice,
+                "Booking",
+                $"Đặt sân {court.Name} - {request.StartTime:dd/MM/yyyy HH:mm}",
+                walletTransaction.Id.ToString()
+            );
+
+            // 10. Broadcast realtime update
+            await BroadcastBookingCreated(booking, court);
 
             return new BookingDto
             {
@@ -174,10 +172,48 @@ public class BookingService : IBookingService
         }
         catch (Exception ex)
         {
-            Console.WriteLine($"CreateBookingAsync - EXCEPTION: {ex.Message}");
-            Console.WriteLine($"CreateBookingAsync - Stack trace: {ex.StackTrace}");
             await transaction.RollbackAsync();
+            Console.WriteLine($"CreateBooking failed: {ex.Message}");
             return null;
+        }
+    }
+
+    private async Task BroadcastBookingCreated(Booking_345 booking, Court_345 court)
+    {
+        try
+        {
+            // ✅ FIXED: Use standardized event payload
+            var bookingPayload = new EventPayloads.BookingPayload
+            {
+                BookingId = booking.Id,
+                CourtId = booking.CourtId,
+                CourtName = court.Name,
+                StartTime = booking.StartTime,
+                EndTime = booking.EndTime,
+                Status = booking.Status.ToString(),
+                MemberId = booking.MemberId,
+                MemberName = "", // Would need to include Member in query
+                Timestamp = DateTime.UtcNow
+            };
+
+            // Broadcast to all users for calendar updates
+            await _hubContext.Clients.All.SendAsync(SignalREvents.BookingCreated, bookingPayload);
+            
+            // Broadcast calendar refresh with standardized payload
+            var calendarRefresh = new
+            {
+                Date = booking.StartTime.Date,
+                CourtId = booking.CourtId,
+                Action = "BookingCreated",
+                Timestamp = DateTime.UtcNow
+            };
+            await _hubContext.Clients.All.SendAsync(SignalREvents.RefreshCalendar, calendarRefresh);
+
+            Console.WriteLine($"✅ Broadcasted booking created: Court {court.Name}, Time {booking.StartTime}");
+        }
+        catch (Exception ex)
+        {
+            Console.WriteLine($"❌ Failed to broadcast booking: {ex.Message}");
         }
     }
 

@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using pickleball_api_345.Data;
 using pickleball_api_345.DTOs;
 using pickleball_api_345.Services;
+using pickleball_api_345.Authorization;
 using System.Security.Claims;
 
 namespace pickleball_api_345.Controllers;
@@ -14,11 +15,16 @@ namespace pickleball_api_345.Controllers;
 public class BookingController : ControllerBase
 {
     private readonly IBookingService _bookingService;
+    private readonly ISlotReservationService _slotReservationService;
     private readonly ApplicationDbContext _context;
 
-    public BookingController(IBookingService bookingService, ApplicationDbContext context)
+    public BookingController(
+        IBookingService bookingService, 
+        ISlotReservationService slotReservationService,
+        ApplicationDbContext context)
     {
         _bookingService = bookingService;
+        _slotReservationService = slotReservationService;
         _context = context;
     }
 
@@ -26,7 +32,10 @@ public class BookingController : ControllerBase
     public async Task<IActionResult> GetCourts()
     {
         var courts = await _bookingService.GetCourtsAsync();
-        return Ok(courts);
+        return Ok(new { 
+            success = true, 
+            data = courts 
+        });
     }
 
     [HttpGet("calendar")]
@@ -37,44 +46,102 @@ public class BookingController : ControllerBase
         return Ok(bookings);
     }
 
+    [HttpPost("reserve-slot")]
+    public async Task<IActionResult> ReserveSlot([FromBody] ReserveSlotDto request)
+    {
+        var memberId = await GetCurrentMemberIdAsync();
+        if (memberId == null)
+            return BadRequest(new { success = false, message = "Member not found" });
+
+        var success = await _slotReservationService.ReserveSlotAsync(
+            request.CourtId, 
+            request.StartTime, 
+            request.EndTime, 
+            memberId.Value);
+
+        if (!success)
+            return BadRequest(new { 
+                success = false, 
+                message = "Slot đã được giữ bởi người khác hoặc không khả dụng" 
+            });
+
+        return Ok(new { 
+            success = true,
+            message = "Đã giữ slot thành công trong 5 phút",
+            data = new {
+                expiresAt = DateTime.UtcNow.AddMinutes(5)
+            }
+        });
+    }
+
+    [HttpPost("release-slot")]
+    public async Task<IActionResult> ReleaseSlot([FromBody] ReserveSlotDto request)
+    {
+        var memberId = await GetCurrentMemberIdAsync();
+        if (memberId == null)
+            return BadRequest(new { success = false, message = "Member not found" });
+
+        var success = await _slotReservationService.ReleaseSlotAsync(
+            request.CourtId, 
+            request.StartTime, 
+            request.EndTime, 
+            memberId.Value);
+
+        return Ok(new { 
+            success = true,
+            message = success ? "Đã thả slot thành công" : "Không thể thả slot" 
+        });
+    }
+
     [HttpPost]
     public async Task<IActionResult> CreateBooking([FromBody] CreateBookingDto request)
     {
         if (!ModelState.IsValid)
-        {
-            var errors = ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage);
-            return BadRequest(new { message = "Dữ liệu không hợp lệ", errors });
-        }
+            return BadRequest(new { success = false, message = "Invalid data", errors = ModelState });
 
         var memberId = await GetCurrentMemberIdAsync();
         if (memberId == null)
-            return BadRequest(new { message = "Member not found" });
+            return BadRequest(new { success = false, message = "Member not found" });
 
-        // Log request data for debugging
-        Console.WriteLine($"CreateBooking Request - CourtId: {request.CourtId}, StartTime: {request.StartTime}, EndTime: {request.EndTime}");
-        Console.WriteLine($"UTC StartTime: {request.StartTime:yyyy-MM-dd HH:mm:ss}, Local StartTime: {request.StartTime.ToLocalTime():yyyy-MM-dd HH:mm:ss}");
+        // ✅ FIXED: Check if user has reserved this slot
+        var reservation = await _slotReservationService.GetSlotReservationAsync(
+            request.CourtId, request.StartTime, request.EndTime);
+            
+        if (reservation == null || reservation.MemberId != memberId.Value)
+            return BadRequest(new { success = false, message = "Bạn phải giữ slot trước khi đặt sân" });
 
         // Validate booking time
         if (request.StartTime >= request.EndTime)
-            return BadRequest(new { message = "Thời gian kết thúc phải sau thời gian bắt đầu" });
+            return BadRequest(new { success = false, message = "Thời gian kết thúc phải sau thời gian bắt đầu" });
 
-        // Convert UTC time to local time for validation
-        var localStartTime = request.StartTime.ToLocalTime();
-        var localNow = DateTime.Now;
-        
-        // Allow booking at least 30 minutes in advance (using local time)
-        var minimumBookingTime = localNow.AddMinutes(30);
-        if (localStartTime <= minimumBookingTime)
-            return BadRequest(new { message = $"Không thể đặt sân trong quá khứ hoặc quá gần hiện tại. Vui lòng đặt ít nhất 30 phút trước. Hiện tại: {localNow:yyyy-MM-dd HH:mm}, Thời gian đặt: {localStartTime:yyyy-MM-dd HH:mm}" });
+        // Allow booking at least 30 minutes in advance
+        var minimumBookingTime = DateTime.UtcNow.AddMinutes(30);
+        if (request.StartTime <= minimumBookingTime)
+            return BadRequest(new { 
+                success = false, 
+                message = $"Không thể đặt sân trong quá khứ hoặc quá gần hiện tại. Vui lòng đặt ít nhất 30 phút trước. Hiện tại: {DateTime.UtcNow:yyyy-MM-dd HH:mm}, Thời gian đặt: {request.StartTime:yyyy-MM-dd HH:mm}" 
+            });
 
         var booking = await _bookingService.CreateBookingAsync(memberId.Value, request);
         if (booking == null)
-            return BadRequest(new { message = "Không thể đặt sân. Vui lòng kiểm tra số dư ví hoặc tình trạng sân" });
+            return BadRequest(new { 
+                success = false, 
+                message = "Không thể đặt sân. Vui lòng kiểm tra số dư ví hoặc tình trạng sân" 
+            });
 
-        return Ok(new { message = "Đặt sân thành công", booking });
+        // Release the slot after successful booking
+        await _slotReservationService.ReleaseSlotAsync(
+            request.CourtId, request.StartTime, request.EndTime, memberId.Value);
+
+        return Ok(new { 
+            success = true,
+            message = "Đặt sân thành công", 
+            data = booking 
+        });
     }
 
     [HttpPost("recurring")]
+    [Authorize(Policy = PolicyConstants.CanCreateRecurringBooking)]
     public async Task<IActionResult> CreateRecurringBooking([FromBody] CreateRecurringBookingDto request)
     {
         if (!ModelState.IsValid)

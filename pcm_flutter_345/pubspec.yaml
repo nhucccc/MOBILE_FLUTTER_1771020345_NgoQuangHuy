@@ -11,6 +11,8 @@ environment:
 dependencies:
   flutter:
     sdk: flutter
+  flutter_localizations:
+    sdk: flutter
   cupertino_icons: ^1.0.2
   
   # State Management
@@ -37,7 +39,7 @@ dependencies:
   badges: ^3.1.2
   
   # Utils
-  intl: ^0.19.0
+  intl: ^0.20.2
   logger: ^2.0.2+1
   
   # Loading & Progress

@@ -90,3 +90,20 @@ public class ConcurrentBookingResultDto
     public List<ConflictingBookingDto> ConflictingBookings { get; set; } = new();
     public string ConflictType { get; set; } = string.Empty; // "TimeConflict", "ConcurrencyConflict", "None"
 }
+
+public class ReserveSlotDto
+{
+    public int CourtId { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+}
+
+public class SlotStatusDto
+{
+    public int CourtId { get; set; }
+    public DateTime StartTime { get; set; }
+    public DateTime EndTime { get; set; }
+    public string Status { get; set; } = string.Empty; // Available, Reserved, Booked
+    public int? ReservedByMemberId { get; set; }
+    public DateTime? ReservedUntil { get; set; }
+}

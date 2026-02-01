@@ -9,22 +9,19 @@ public class HealthController : ControllerBase
     [HttpGet]
     public IActionResult Get()
     {
-        return Ok(new
-        {
-            status = "healthy",
+        return Ok(new { 
+            status = "healthy", 
             timestamp = DateTime.UtcNow,
-            message = "API is running"
+            message = "Backend API is running successfully"
         });
     }
 
-    [HttpGet("cors-test")]
-    public IActionResult CorsTest()
+    [HttpGet("ping")]
+    public IActionResult Ping()
     {
-        return Ok(new
-        {
-            message = "CORS is working",
-            timestamp = DateTime.UtcNow,
-            origin = Request.Headers["Origin"].FirstOrDefault()
+        return Ok(new { 
+            message = "pong", 
+            timestamp = DateTime.UtcNow 
         });
     }
 }

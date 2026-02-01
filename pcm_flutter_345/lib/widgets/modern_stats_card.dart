@@ -10,6 +10,8 @@ class ModernStatsCard extends StatelessWidget {
   final String? subtitle;
   final String? trend;
   final bool? isPositiveTrend;
+  final String? badge;
+  final String? description;
 
   const ModernStatsCard({
     super.key,
@@ -21,6 +23,8 @@ class ModernStatsCard extends StatelessWidget {
     this.subtitle,
     this.trend,
     this.isPositiveTrend,
+    this.badge,
+    this.description,
   });
 
   @override
@@ -34,59 +38,97 @@ class ModernStatsCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusMD),
         child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacing16),
+          padding: const EdgeInsets.all(AppTheme.spacing12),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Row(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(8),
+                    padding: const EdgeInsets.all(6),
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(
                       icon,
                       color: color,
-                      size: 20,
+                      size: 16,
                     ),
                   ),
                   const Spacer(),
+                  if (badge != null)
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+                      decoration: BoxDecoration(
+                        color: Colors.red,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Text(
+                        badge!,
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 8,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              const SizedBox(height: 12),
+              const SizedBox(height: 8),
               Text(
                 value,
-                style: AppTheme.headlineMedium.copyWith(
+                style: AppTheme.titleLarge.copyWith(
                   fontWeight: FontWeight.bold,
                   color: color,
                 ),
               ),
-              const SizedBox(height: 4),
+              const SizedBox(height: 2),
               Text(
                 title,
                 style: AppTheme.bodySmall.copyWith(
                   color: AppTheme.textSecondary,
+                  fontSize: 11,
                 ),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
               ),
               if (subtitle != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   subtitle!,
                   style: AppTheme.bodySmall.copyWith(
                     color: AppTheme.textHint,
+                    fontSize: 10,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+              ],
+              if (description != null) ...[
+                const SizedBox(height: 1),
+                Text(
+                  description!,
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textHint,
+                    fontSize: 10,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
               if (trend != null) ...[
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   trend!,
                   style: AppTheme.bodySmall.copyWith(
                     color: (isPositiveTrend ?? true) ? AppTheme.successColor : AppTheme.errorColor,
                     fontWeight: FontWeight.w600,
+                    fontSize: 10,
                   ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ],
             ],
@@ -126,21 +168,23 @@ class ModernActionCard extends StatelessWidget {
         onTap: onTap,
         borderRadius: BorderRadius.circular(AppTheme.radiusMD),
         child: Padding(
-          padding: const EdgeInsets.all(AppTheme.spacing16),
+          padding: const EdgeInsets.all(6), // Giảm từ 8 xuống 6
           child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Stack(
                 children: [
                   Container(
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.all(6), // Giảm từ 8 xuống 6
                     decoration: BoxDecoration(
                       color: color.withOpacity(0.1),
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: BorderRadius.circular(6),
                     ),
                     child: Icon(
                       icon,
                       color: color,
-                      size: 32,
+                      size: 18, // Giảm từ 20 xuống 18
                     ),
                   ),
                   if (badge != null)
@@ -151,20 +195,31 @@ class ModernActionCard extends StatelessWidget {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
-              Text(
-                title,
-                style: AppTheme.titleMedium.copyWith(
-                  fontWeight: FontWeight.w600,
+              const SizedBox(height: 4), // Giảm từ 6 xuống 4
+              Flexible(
+                child: Text(
+                  title,
+                  style: AppTheme.titleSmall.copyWith(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 11, // Giảm từ 12 xuống 11
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(height: 4),
-              Text(
-                description,
-                style: AppTheme.bodySmall.copyWith(
-                  color: AppTheme.textSecondary,
+              const SizedBox(height: 1), // Giảm từ 2 xuống 1
+              Flexible(
+                child: Text(
+                  description,
+                  style: AppTheme.bodySmall.copyWith(
+                    color: AppTheme.textSecondary,
+                    fontSize: 8, // Giảm từ 9 xuống 8
+                  ),
+                  textAlign: TextAlign.center,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                textAlign: TextAlign.center,
               ),
             ],
           ),

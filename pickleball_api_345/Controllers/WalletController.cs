@@ -27,10 +27,13 @@ public class WalletController : ControllerBase
     {
         var memberId = await GetCurrentMemberIdAsync();
         if (memberId == null)
-            return BadRequest("Member not found");
+            return BadRequest(new { success = false, message = "Member not found" });
 
         var balance = await _walletService.GetWalletBalanceAsync(memberId.Value);
-        return Ok(balance);
+        return Ok(new { 
+            success = true, 
+            data = new { balance = balance }
+        });
     }
 
     [HttpGet("transactions")]

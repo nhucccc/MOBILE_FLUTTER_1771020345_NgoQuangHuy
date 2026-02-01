@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:provider/provider.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/home/main_screen.dart';
 import 'screens/tournament/tournaments_screen.dart';
+import 'screens/tournament/tournament_detail_screen.dart';
 import 'screens/booking/recurring_booking_screen.dart';
+import 'screens/admin/tournament_management_screen.dart';
+import 'screens/admin/simple_court_management_screen.dart';
+import 'screens/admin/enhanced_member_management_screen.dart';
+import 'screens/admin/deposit_approval_screen.dart';
+import 'screens/admin/reports_screen.dart';
 import 'providers/auth_provider.dart';
 import 'providers/wallet_provider.dart';
 import 'providers/booking_provider.dart';
@@ -12,7 +19,12 @@ import 'providers/tournament_provider.dart';
 import 'services/api_service.dart';
 import 'services/signalr_service.dart';
 import 'services/biometric_service.dart';
+import 'widgets/realtime_notification_widget.dart';
+import 'widgets/error_boundary.dart';
 import 'theme/app_theme.dart';
+
+// Global navigator key for handling 401 redirects
+final GlobalKey<NavigatorState> navigatorKey = GlobalKey<NavigatorState>();
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -32,13 +44,43 @@ class PCMApp extends StatelessWidget {
         ChangeNotifierProvider(create: (_) => TournamentProvider()),
       ],
       child: MaterialApp(
+        navigatorKey: navigatorKey, // Add global navigator key
         title: 'PCM - Vợt Thủ Phố Núi',
         debugShowCheckedModeBanner: false,
-        theme: AppTheme.lightTheme,
+        theme: AppTheme.theme,
+        // Add localization support
+        localizationsDelegates: const [
+          GlobalMaterialLocalizations.delegate,
+          GlobalWidgetsLocalizations.delegate,
+          GlobalCupertinoLocalizations.delegate,
+        ],
+        supportedLocales: const [
+          Locale('vi', 'VN'), // Vietnamese
+          Locale('en', 'US'), // English
+        ],
+        locale: const Locale('vi', 'VN'), // Default to Vietnamese
         home: const AuthWrapper(),
         routes: {
           '/tournaments': (context) => const TournamentsScreen(),
           '/recurring-booking': (context) => const RecurringBookingScreen(),
+          '/login': (context) => const LoginScreen(),
+          '/admin/tournament-management': (context) => const TournamentManagementScreen(),
+          '/admin/court-management': (context) => const SimpleCourtManagementScreen(),
+          '/admin/member-management': (context) => const EnhancedMemberManagementScreen(),
+          '/admin/deposit-approval': (context) => const DepositApprovalScreen(),
+          '/admin/reports': (context) => const ReportsScreen(),
+        },
+        onGenerateRoute: (settings) {
+          // Handle dynamic routes like tournament detail
+          if (settings.name?.startsWith('/tournament-detail') == true) {
+            final tournamentId = settings.arguments as int?;
+            if (tournamentId != null) {
+              return MaterialPageRoute(
+                builder: (context) => TournamentDetailScreen(tournamentId: tournamentId),
+              );
+            }
+          }
+          return null;
         },
       ),
     );
@@ -235,9 +277,15 @@ class _AuthWrapperState extends State<AuthWrapper> {
             final walletProvider = Provider.of<WalletProvider>(context, listen: false);
             walletProvider.loadWalletData();
           });
-          return const MainScreen();
+          return ErrorBoundary(
+            child: RealtimeNotificationWidget(
+              child: MainScreen(),
+            ),
+          );
         } else {
-          return const LoginScreen();
+          return ErrorBoundary(
+            child: LoginScreen(),
+          );
         }
       },
     );

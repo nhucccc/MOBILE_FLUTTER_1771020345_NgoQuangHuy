@@ -7,9 +7,9 @@ import '../../widgets/modern_stats_card.dart';
 import '../../widgets/animated_background.dart';
 import '../../widgets/glass_card.dart';
 import '../../widgets/role_badge.dart';
-import 'member_management_screen.dart';
+import 'enhanced_member_management_screen.dart';
 import 'deposit_approval_screen.dart';
-import 'court_management_screen.dart';
+import 'debug_court_screen.dart';
 import 'system_settings_screen.dart';
 
 class AdminDashboardScreen extends StatefulWidget {
@@ -206,9 +206,9 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           crossAxisCount: 2,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 1.3,
-                          mainAxisSpacing: AppTheme.spacing12,
-                          crossAxisSpacing: AppTheme.spacing12,
+                          childAspectRatio: 2.2, // Tăng từ 1.8 lên 2.2 để làm thấp hơn
+                          mainAxisSpacing: AppTheme.spacing8,
+                          crossAxisSpacing: AppTheme.spacing8,
                           children: [
                             ModernStatsCard(
                               title: 'Tổng thành viên',
@@ -277,20 +277,20 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                           crossAxisCount: 2,
                           shrinkWrap: true,
                           physics: const NeverScrollableScrollPhysics(),
-                          childAspectRatio: 1.1,
-                          mainAxisSpacing: AppTheme.spacing12,
-                          crossAxisSpacing: AppTheme.spacing12,
+                          childAspectRatio: 2.4, // Tăng từ 1.8 lên 2.4 để làm thấp hơn nữa
+                          mainAxisSpacing: AppTheme.spacing8,
+                          crossAxisSpacing: AppTheme.spacing8,
                           children: [
                             ModernActionCard(
-                              title: 'Quản lý thành viên',
-                              description: 'Thêm, sửa, xóa thành viên',
+                              title: 'QL TV',
+                              description: 'Quản lý thành viên',
                               icon: Icons.people_alt_rounded,
                               color: AppTheme.adminColor,
                               onTap: () => _navigateToMemberManagement(),
                             ),
                             ModernActionCard(
-                              title: 'Duyệt nạp tiền',
-                              description: 'Duyệt yêu cầu nạp tiền',
+                              title: 'Duyệt nạp',
+                              description: 'Duyệt yêu cầu',
                               icon: Icons.approval_rounded,
                               color: AppTheme.successColor,
                               badge: Container(
@@ -313,15 +313,15 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
                               onTap: () => _navigateToDepositApproval(),
                             ),
                             ModernActionCard(
-                              title: 'Quản lý sân',
-                              description: 'Cấu hình sân và giá',
+                              title: 'QL Sân',
+                              description: 'Quản lý sân',
                               icon: Icons.sports_tennis_rounded,
                               color: AppTheme.infoColor,
                               onTap: () => _navigateToCourtManagement(),
                             ),
                             ModernActionCard(
-                              title: 'Cài đặt hệ thống',
-                              description: 'Cấu hình tham số',
+                              title: 'Cài đặt',
+                              description: 'Cấu hình',
                               icon: Icons.settings_rounded,
                               color: AppTheme.treasurerColor,
                               onTap: () => _navigateToSystemSettings(),
@@ -477,14 +477,14 @@ class _AdminDashboardScreenState extends State<AdminDashboardScreen>
   void _navigateToMemberManagement() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const MemberManagementScreen()),
+      MaterialPageRoute(builder: (_) => const EnhancedMemberManagementScreen()),
     );
   }
 
   void _navigateToCourtManagement() {
     Navigator.push(
       context,
-      MaterialPageRoute(builder: (_) => const CourtManagementScreen()),
+      MaterialPageRoute(builder: (_) => const DebugCourtScreen()),
     );
   }
 

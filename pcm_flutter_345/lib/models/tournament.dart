@@ -3,43 +3,62 @@ import 'package:flutter/material.dart';
 class Tournament {
   final int id;
   final String name;
+  final String? description;
   final DateTime startDate;
   final DateTime endDate;
+  final DateTime? registrationDeadline;
   final String format;
   final double entryFee;
   final double prizePool;
-  final String status;
+  String status;
   final String? settings;
-  final int participantCount;
+  int? participantCount;
+  final int maxParticipants;
   final bool isJoined;
+  final DateTime? createdDate;
+  final String? createdBy;
 
   Tournament({
     required this.id,
     required this.name,
+    this.description,
     required this.startDate,
     required this.endDate,
+    this.registrationDeadline,
     required this.format,
     required this.entryFee,
     required this.prizePool,
     required this.status,
     this.settings,
     this.participantCount = 0,
+    this.maxParticipants = 32,
     this.isJoined = false,
+    this.createdDate,
+    this.createdBy,
   });
 
   factory Tournament.fromJson(Map<String, dynamic> json) {
     return Tournament(
       id: json['id'],
       name: json['name'] ?? '',
+      description: json['description'],
       startDate: DateTime.parse(json['startDate']),
       endDate: DateTime.parse(json['endDate']),
+      registrationDeadline: json['registrationDeadline'] != null 
+          ? DateTime.parse(json['registrationDeadline']) 
+          : null,
       format: json['format'] ?? 'RoundRobin',
       entryFee: json['entryFee']?.toDouble() ?? 0.0,
       prizePool: json['prizePool']?.toDouble() ?? 0.0,
       status: json['status'] ?? 'Open',
       settings: json['settings'],
       participantCount: json['participantCount'] ?? 0,
+      maxParticipants: json['maxParticipants'] ?? 32,
       isJoined: json['isJoined'] ?? false,
+      createdDate: json['createdDate'] != null 
+          ? DateTime.parse(json['createdDate']) 
+          : null,
+      createdBy: json['createdBy'],
     );
   }
 
@@ -47,15 +66,20 @@ class Tournament {
     return {
       'id': id,
       'name': name,
+      'description': description,
       'startDate': startDate.toIso8601String(),
       'endDate': endDate.toIso8601String(),
+      'registrationDeadline': registrationDeadline?.toIso8601String(),
       'format': format,
       'entryFee': entryFee,
       'prizePool': prizePool,
       'status': status,
       'settings': settings,
       'participantCount': participantCount,
+      'maxParticipants': maxParticipants,
       'isJoined': isJoined,
+      'createdDate': createdDate?.toIso8601String(),
+      'createdBy': createdBy,
     };
   }
 
@@ -153,7 +177,7 @@ class TournamentParticipant {
   final int memberId;
   final String memberName;
   final String? teamName;
-  final String paymentStatus;
+  String paymentStatus;
   final DateTime joinedDate;
   final double? duprRating;
 
@@ -209,25 +233,26 @@ class TournamentParticipant {
 }
 
 class Match {
-  final int id;
-  final int? tournamentId;
-  final String roundName;
-  final DateTime? date;
-  final DateTime? startTime;
-  final int? team1Player1Id;
-  final int? team1Player2Id;
-  final int? team2Player1Id;
-  final int? team2Player2Id;
-  final String? team1Player1Name;
-  final String? team1Player2Name;
-  final String? team2Player1Name;
-  final String? team2Player2Name;
-  final int? score1;
-  final int? score2;
-  final String? details;
-  final String? winningSide;
-  final bool isRanked;
-  final String status;
+  int id;
+  int? tournamentId;
+  String roundName;
+  DateTime? date;
+  DateTime? startTime;
+  int? team1Player1Id;
+  int? team1Player2Id;
+  int? team2Player1Id;
+  int? team2Player2Id;
+  String? team1Player1Name;
+  String? team1Player2Name;
+  String? team2Player1Name;
+  String? team2Player2Name;
+  int? score1;
+  int? score2;
+  String? details;
+  String? winningSide;
+  bool isRanked;
+  String status;
+  String? courtName;
 
   Match({
     required this.id,
@@ -249,6 +274,7 @@ class Match {
     this.winningSide,
     this.isRanked = true,
     required this.status,
+    this.courtName,
   });
 
   factory Match.fromJson(Map<String, dynamic> json) {
@@ -262,9 +288,9 @@ class Match {
       team1Player2Id: json['team1Player2Id'],
       team2Player1Id: json['team2Player1Id'],
       team2Player2Id: json['team2Player2Id'],
-      team1Player1Name: json['team1Player1Name'],
+      team1Player1Name: json['team1Player1Name'] ?? json['team1Display'],
       team1Player2Name: json['team1Player2Name'],
-      team2Player1Name: json['team2Player1Name'],
+      team2Player1Name: json['team2Player1Name'] ?? json['team2Display'],
       team2Player2Name: json['team2Player2Name'],
       score1: json['score1'],
       score2: json['score2'],
@@ -272,6 +298,7 @@ class Match {
       winningSide: json['winningSide'],
       isRanked: json['isRanked'] ?? true,
       status: json['status'] ?? 'Scheduled',
+      courtName: json['courtName'],
     );
   }
 

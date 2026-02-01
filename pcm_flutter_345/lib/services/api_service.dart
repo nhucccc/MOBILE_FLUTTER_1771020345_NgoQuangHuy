@@ -2,6 +2,10 @@ import 'package:dio/dio.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:logger/logger.dart';
 import 'package:flutter/foundation.dart';
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+import '../main.dart';
+import '../providers/auth_provider.dart';
 
 class ApiService {
   // Tự động chọn URL dựa trên platform
@@ -47,9 +51,35 @@ class ApiService {
         _logger.d('Response: ${response.statusCode} ${response.requestOptions.path}');
         handler.next(response);
       },
-      onError: (error, handler) {
+      onError: (error, handler) async {
         _logger.e('Error: ${error.response?.statusCode} ${error.requestOptions.path}');
         _logger.e('Error message: ${error.message}');
+        
+        // Handle 401 Unauthorized - Token expired
+        if (error.response?.statusCode == 401) {
+          _logger.w('Token expired, logging out user');
+          
+          try {
+            // Clear token
+            await clearToken();
+            
+            // Get auth provider and logout
+            final context = navigatorKey.currentContext;
+            if (context != null) {
+              final authProvider = Provider.of<AuthProvider>(context, listen: false);
+              await authProvider.logout();
+              
+              // Navigate to login screen
+              Navigator.of(context).pushNamedAndRemoveUntil('/login', (route) => false);
+            }
+          } catch (e) {
+            _logger.e('Error during 401 handling: $e');
+          }
+          
+          // Don't retry the request
+          return;
+        }
+        
         handler.next(error);
       },
     ));
@@ -117,10 +147,25 @@ class ApiService {
   }
 
   // Wallet endpoints
+  // Fixed: Handle API response format properly
   Future<double> getWalletBalance() async {
     try {
       final response = await _dio.get('/wallet/balance');
-      return response.data.toDouble();
+      print('🔍 getWalletBalance response: ${response.data}');
+      
+      // Handle API response format: {success: true, data: {balance: 58980000}}
+      if (response.data is Map<String, dynamic>) {
+        final data = response.data as Map<String, dynamic>;
+        if (data['success'] == true && data['data'] != null) {
+          final balanceData = data['data'] as Map<String, dynamic>;
+          final balance = balanceData['balance'];
+          print('💰 Extracted balance: $balance (${balance.runtimeType})');
+          return (balance as num).toDouble();
+        }
+      }
+      
+      // Fallback: try direct conversion
+      return (response.data as num).toDouble();
     } on DioException catch (e) {
       throw _handleError(e);
     }
@@ -173,13 +218,9 @@ class ApiService {
     required DateTime to,
   }) async {
     try {
-      // Convert to UTC to match backend expectations
-      final utcFrom = from.toUtc();
-      final utcTo = to.toUtc();
-      
       final response = await _dio.get('/booking/calendar', queryParameters: {
-        'from': utcFrom.toIso8601String(),
-        'to': utcTo.toIso8601String(),
+        'from': from.toIso8601String(),
+        'to': to.toIso8601String(),
       });
       return List<Map<String, dynamic>>.from(response.data);
     } on DioException catch (e) {
@@ -199,19 +240,13 @@ class ApiService {
         print('ApiService: Token preview: ${token.substring(0, 20)}...');
       }
       
-      // Convert to UTC to match backend expectations
-      final utcStartTime = startTime.toUtc();
-      final utcEndTime = endTime.toUtc();
-      
       final requestData = {
         'CourtId': courtId,  // Viết hoa C để match với backend DTO
-        'StartTime': utcStartTime.toIso8601String(),  // Viết hoa S
-        'EndTime': utcEndTime.toIso8601String(),  // Viết hoa E
+        'StartTime': startTime.toIso8601String(),  // Viết hoa S
+        'EndTime': endTime.toIso8601String(),  // Viết hoa E
       };
       
       print('ApiService: Creating booking with data: $requestData');
-      print('ApiService: Local start time: ${startTime.toIso8601String()}');
-      print('ApiService: UTC start time: ${utcStartTime.toIso8601String()}');
       print('ApiService: Making request to: ${_dio.options.baseUrl}/booking');
       
       final response = await _dio.post('/booking', data: requestData);
@@ -234,17 +269,12 @@ class ApiService {
     required DateTime endDate,
   }) async {
     try {
-      // Convert to UTC to match backend expectations
-      final utcStartTime = startTime.toUtc();
-      final utcEndTime = endTime.toUtc();
-      final utcEndDate = endDate.toUtc();
-      
       final response = await _dio.post('/booking/recurring', data: {
         'CourtId': courtId,  // Viết hoa C
-        'StartTime': utcStartTime.toIso8601String(),  // Viết hoa S
-        'EndTime': utcEndTime.toIso8601String(),  // Viết hoa E
+        'StartTime': startTime.toIso8601String(),  // Viết hoa S
+        'EndTime': endTime.toIso8601String(),  // Viết hoa E
         'RecurrenceRule': recurrenceRule,  // Viết hoa R
-        'EndDate': utcEndDate.toIso8601String(),  // Viết hoa E
+        'EndDate': endDate.toIso8601String(),  // Viết hoa E
       });
       return response.data;
     } on DioException catch (e) {
@@ -282,14 +312,10 @@ class ApiService {
     required DateTime endTime,
   }) async {
     try {
-      // Convert to UTC to match backend expectations
-      final utcStartTime = startTime.toUtc();
-      final utcEndTime = endTime.toUtc();
-      
       final response = await _dio.get('/booking/check-availability', queryParameters: {
         'courtId': courtId,  // Query parameters thường viết thường
-        'startTime': utcStartTime.toIso8601String(),
-        'endTime': utcEndTime.toIso8601String(),
+        'startTime': startTime.toIso8601String(),
+        'endTime': endTime.toIso8601String(),
       });
       return response.data['isAvailable'] ?? false;
     } on DioException catch (e) {

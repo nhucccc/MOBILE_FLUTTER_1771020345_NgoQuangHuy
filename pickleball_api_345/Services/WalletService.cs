@@ -9,11 +9,16 @@ public class WalletService : IWalletService
 {
     private readonly ApplicationDbContext _context;
     private readonly INotificationService _notificationService;
+    private readonly IWalletSyncService _walletSyncService;
 
-    public WalletService(ApplicationDbContext context, INotificationService notificationService)
+    public WalletService(
+        ApplicationDbContext context, 
+        INotificationService notificationService,
+        IWalletSyncService walletSyncService)
     {
         _context = context;
         _notificationService = notificationService;
+        _walletSyncService = walletSyncService;
     }
 
     public async Task<decimal> GetWalletBalanceAsync(int memberId)
@@ -88,20 +93,40 @@ public class WalletService : IWalletService
                 
                 // Add money to wallet
                 walletTransaction.Member.WalletBalance += walletTransaction.Amount;
-                walletTransaction.Member.TotalSpent += walletTransaction.Amount;
+                // ❌ BUG FIX: Deposit should NOT increase TotalSpent
+                // TotalSpent only increases when user SPENDS money (bookings, tournaments)
+                // walletTransaction.Member.TotalSpent += walletTransaction.Amount;
                 
                 // Update member tier
                 await UpdateMemberTierAsync(walletTransaction.MemberId);
 
-                // Send notification via SignalR
-                await _notificationService.NotifyWalletDepositAsync(
-                    walletTransaction.Member.UserId, 
-                    walletTransaction.Amount
+                // ✅ NEW: Use WalletSyncService for real-time updates
+                await _walletSyncService.NotifyWalletUpdateAsync(
+                    walletTransaction.MemberId,
+                    walletTransaction.Amount,
+                    "Deposit",
+                    $"Nạp tiền được duyệt: {walletTransaction.Amount:N0} VND",
+                    transactionId.ToString()
+                );
+
+                // Broadcast to admins
+                await _walletSyncService.BroadcastWalletUpdateToAdminsAsync(
+                    walletTransaction.MemberId,
+                    walletTransaction.Amount,
+                    "Deposit Approved"
                 );
             }
             else
             {
                 walletTransaction.Status = TransactionStatus.Rejected;
+                
+                // Notify user about rejection
+                await _notificationService.SendNotificationAsync(
+                    walletTransaction.Member.UserId,
+                    "❌ Yêu cầu nạp tiền bị từ chối",
+                    $"Yêu cầu nạp {walletTransaction.Amount:N0} VND đã bị từ chối. {adminNote}",
+                    Models.NotificationType.Warning
+                );
             }
 
             await _context.SaveChangesAsync();
@@ -117,7 +142,7 @@ public class WalletService : IWalletService
 
     public async Task<bool> ProcessPaymentAsync(int memberId, decimal amount, TransactionType type, string? description = null, string? relatedId = null)
     {
-        // Remove nested transaction - use the existing transaction from BookingService
+        using var transaction = await _context.Database.BeginTransactionAsync();
         try
         {
             var member = await _context.Members_345.FindAsync(memberId);
@@ -152,7 +177,27 @@ public class WalletService : IWalletService
             };
 
             _context.WalletTransactions_345.Add(walletTransaction);
-            // Don't call SaveChanges here - let the parent transaction handle it
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+            
+            // ✅ NEW: Real-time wallet sync after payment
+            var transactionTypeString = type switch
+            {
+                TransactionType.BookingPayment => "Booking",
+                TransactionType.TournamentFee => "Tournament",
+                _ => "Payment"
+            };
+
+            await _walletSyncService.NotifyWalletUpdateAsync(
+                memberId,
+                -amount, // Negative amount for payment
+                transactionTypeString,
+                description,
+                walletTransaction.Id.ToString()
+            );
+
+            // Update member tier after spending
+            await UpdateMemberTierAsync(memberId);
             
             Console.WriteLine($"ProcessPayment - SUCCESS");
             return true;
@@ -160,33 +205,54 @@ public class WalletService : IWalletService
         catch (Exception ex)
         {
             Console.WriteLine($"ProcessPayment - EXCEPTION: {ex.Message}");
+            await transaction.RollbackAsync();
             return false;
         }
     }
 
     public async Task<bool> RefundAsync(int memberId, decimal amount, string? description = null, string? relatedId = null)
     {
-        var member = await _context.Members_345.FindAsync(memberId);
-        if (member == null) return false;
-
-        // Add to wallet
-        member.WalletBalance += amount;
-
-        // Create transaction record
-        var walletTransaction = new WalletTransaction_345
+        using var transaction = await _context.Database.BeginTransactionAsync();
+        try
         {
-            MemberId = memberId,
-            Amount = amount,
-            Type = TransactionType.Refund,
-            Status = TransactionStatus.Completed,
-            Description = description ?? $"Hoàn tiền: {amount:N0} VND",
-            RelatedId = relatedId,
-            CreatedDate = DateTime.UtcNow
-        };
+            var member = await _context.Members_345.FindAsync(memberId);
+            if (member == null) return false;
 
-        _context.WalletTransactions_345.Add(walletTransaction);
-        await _context.SaveChangesAsync();
-        return true;
+            // Add to wallet
+            member.WalletBalance += amount;
+
+            // Create transaction record
+            var walletTransaction = new WalletTransaction_345
+            {
+                MemberId = memberId,
+                Amount = amount,
+                Type = TransactionType.Refund,
+                Status = TransactionStatus.Completed,
+                Description = description ?? $"Hoàn tiền: {amount:N0} VND",
+                RelatedId = relatedId,
+                CreatedDate = DateTime.UtcNow
+            };
+
+            _context.WalletTransactions_345.Add(walletTransaction);
+            await _context.SaveChangesAsync();
+            await transaction.CommitAsync();
+
+            // ✅ NEW: Real-time wallet sync after refund
+            await _walletSyncService.NotifyWalletUpdateAsync(
+                memberId,
+                amount,
+                "Refund",
+                description,
+                walletTransaction.Id.ToString()
+            );
+
+            return true;
+        }
+        catch
+        {
+            await transaction.RollbackAsync();
+            return false;
+        }
     }
 
     public async Task UpdateMemberTierAsync(int memberId)

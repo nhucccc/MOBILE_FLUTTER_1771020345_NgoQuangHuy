@@ -6,6 +6,7 @@ import '../../theme/app_theme.dart';
 import '../../widgets/simple_card.dart';
 import '../../widgets/tournament_bracket.dart';
 import '../../models/tournament.dart';
+import 'tournament_chat_screen.dart';
 
 class TournamentDetailScreen extends StatefulWidget {
   final int tournamentId;
@@ -75,7 +76,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     if (_isLoading) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Chi tiết giải đấu'),
+          title: const Text('Chi tiết giải'),
           backgroundColor: AppTheme.primaryColor,
           foregroundColor: Colors.white,
         ),
@@ -88,7 +89,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     if (_tournament == null) {
       return Scaffold(
         appBar: AppBar(
-          title: const Text('Chi tiết giải đấu'),
+          title: const Text('Chi tiết giải'),
           backgroundColor: AppTheme.primaryColor,
           foregroundColor: Colors.white,
         ),
@@ -125,7 +126,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
           _buildResultsTab(),
         ],
       ),
-      floatingActionButton: _buildJoinButton(),
+      floatingActionButton: _buildFloatingActionButtons(),
     );
   }
 
@@ -265,7 +266,7 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
 
   Widget _buildBracketTab() {
     if (_matches.isEmpty) {
-      return const Center(
+      return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
@@ -274,77 +275,479 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
               size: 64,
               color: AppTheme.neutral400,
             ),
-            SizedBox(height: 16),
+            const SizedBox(height: 16),
             Text(
               'Chưa có lịch thi đấu',
               style: AppTheme.titleMedium,
             ),
+            const SizedBox(height: 8),
+            Text(
+              'Lịch thi đấu sẽ được tạo sau khi đủ số lượng đội tham gia',
+              style: AppTheme.bodySmall.copyWith(
+                color: AppTheme.textSecondary,
+              ),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 24),
+            if (_tournament!.status == 'Registering')
+              ElevatedButton.icon(
+                onPressed: () => _generateBracket(),
+                icon: const Icon(Icons.shuffle),
+                label: const Text('Tạo lịch thi đấu'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.primaryColor,
+                  foregroundColor: Colors.white,
+                ),
+              ),
           ],
         ),
       );
     }
 
-    return TournamentBracket(
-      tournament: _tournament!,
-      matches: _matches,
-      onMatchTap: _showMatchDetail,
+    return Column(
+      children: [
+        // Bracket controls
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.neutral50,
+            border: Border(
+              bottom: BorderSide(color: AppTheme.neutral200),
+            ),
+          ),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  'Lịch thi đấu ${_getFormatText(_tournament!.format)}',
+                  style: AppTheme.titleMedium.copyWith(
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ),
+              IconButton(
+                onPressed: () => _showBracketLegend(),
+                icon: const Icon(Icons.help_outline),
+                tooltip: 'Chú thích',
+              ),
+              IconButton(
+                onPressed: () => _refreshBracket(),
+                icon: const Icon(Icons.refresh),
+                tooltip: 'Làm mới',
+              ),
+            ],
+          ),
+        ),
+        
+        // Bracket widget
+        Expanded(
+          child: TournamentBracket(
+            tournament: _tournament!,
+            matches: _matches,
+            onMatchTap: _showMatchDetail,
+            isAdmin: _isAdmin(),
+          ),
+        ),
+      ],
+    );
+  }
+
+  bool _isAdmin() {
+    final authProvider = Provider.of<AuthProvider>(context, listen: false);
+    return authProvider.user?.role == 'Admin' || authProvider.user?.role == 'Referee';
+  }
+
+  Future<void> _generateBracket() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Tạo lịch thi đấu'),
+        content: const Text(
+          'Bạn có chắc chắn muốn tạo lịch thi đấu? '
+          'Sau khi tạo, không thể thay đổi danh sách đội tham gia.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.primaryColor,
+            ),
+            child: const Text('Tạo lịch', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        // TODO: Call API to generate bracket
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Đang tạo lịch thi đấu...'),
+            backgroundColor: AppTheme.warningColor,
+          ),
+        );
+        
+        await Future.delayed(const Duration(seconds: 2));
+        await _loadTournamentData();
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Tạo lịch thi đấu thành công!'),
+            backgroundColor: AppTheme.successColor,
+          ),
+        );
+      } catch (e) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Lỗi tạo lịch: $e'),
+            backgroundColor: AppTheme.errorColor,
+          ),
+        );
+      }
+    }
+  }
+
+  Future<void> _refreshBracket() async {
+    await _loadTournamentData();
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Đã làm mới lịch thi đấu'),
+        duration: Duration(seconds: 1),
+      ),
+    );
+  }
+
+  void _showBracketLegend() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Chú thích lịch thi đấu'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildLegendItem(
+              color: AppTheme.neutral500,
+              text: 'Chưa thi đấu',
+              icon: Icons.schedule,
+            ),
+            _buildLegendItem(
+              color: AppTheme.warningColor,
+              text: 'Đang thi đấu',
+              icon: Icons.play_circle,
+            ),
+            _buildLegendItem(
+              color: AppTheme.successColor,
+              text: 'Đã kết thúc',
+              icon: Icons.check_circle,
+            ),
+            const SizedBox(height: 16),
+            const Text(
+              'Nhấn vào trận đấu để xem chi tiết hoặc cập nhật kết quả (dành cho quản trị viên).',
+              style: TextStyle(
+                fontSize: 12,
+                color: AppTheme.textSecondary,
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLegendItem({
+    required Color color,
+    required String text,
+    required IconData icon,
+  }) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        children: [
+          Container(
+            width: 16,
+            height: 16,
+            decoration: BoxDecoration(
+              color: color,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Icon(
+              icon,
+              size: 12,
+              color: Colors.white,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(text),
+        ],
+      ),
     );
   }
 
   Widget _buildParticipantsTab() {
-    return ListView.builder(
-      padding: const EdgeInsets.all(16),
-      itemCount: _participants.length,
-      itemBuilder: (context, index) {
-        final participant = _participants[index];
-        
-        return SimpleCard(
-          margin: const EdgeInsets.only(bottom: 12),
-          child: ListTile(
-            leading: CircleAvatar(
-              backgroundColor: AppTheme.primaryColor,
-              child: Text(
-                '${index + 1}',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-            title: Text(
-              participant.teamName ?? participant.memberName,
-              style: AppTheme.titleMedium.copyWith(
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            subtitle: Text(
-              participant.memberName,
-              style: AppTheme.bodySmall.copyWith(
-                color: AppTheme.textSecondary,
-              ),
-            ),
-            trailing: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-              decoration: BoxDecoration(
-                color: participant.paymentStatus == 'Paid' 
-                    ? AppTheme.successColor.withOpacity(0.1)
-                    : AppTheme.warningColor.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Text(
-                participant.paymentStatus == 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán',
-                style: AppTheme.labelSmall.copyWith(
-                  color: participant.paymentStatus == 'Paid' 
-                      ? AppTheme.successColor
-                      : AppTheme.warningColor,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+    return Column(
+      children: [
+        // Participants header
+        Container(
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            color: AppTheme.neutral50,
+            border: Border(
+              bottom: BorderSide(color: AppTheme.neutral200),
             ),
           ),
-        );
-      },
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'Danh sách tham gia',
+                      style: AppTheme.titleMedium.copyWith(
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                    Text(
+                      '${_participants.length}/${_tournament!.maxParticipants} đội',
+                      style: AppTheme.bodySmall.copyWith(
+                        color: AppTheme.textSecondary,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (_isAdmin())
+                ElevatedButton.icon(
+                  onPressed: () => _showAddParticipantDialog(),
+                  icon: const Icon(Icons.person_add, size: 16),
+                  label: const Text('Thêm'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppTheme.primaryColor,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        
+        // Participants list
+        Expanded(
+          child: _participants.isEmpty
+              ? const Center(
+                  child: Column(
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                        Icons.people_outline,
+                        size: 64,
+                        color: AppTheme.neutral400,
+                      ),
+                      SizedBox(height: 16),
+                      Text(
+                        'Chưa có đội tham gia',
+                        style: AppTheme.titleMedium,
+                      ),
+                    ],
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: _participants.length,
+                  itemBuilder: (context, index) {
+                    final participant = _participants[index];
+                    
+                    return SimpleCard(
+                      margin: const EdgeInsets.only(bottom: 12),
+                      child: ListTile(
+                        leading: Stack(
+                          children: [
+                            CircleAvatar(
+                              backgroundColor: AppTheme.primaryColor,
+                              child: Text(
+                                '${index + 1}',
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                            ),
+                            if (participant.duprRating != null && participant.duprRating! >= 4.0)
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 16,
+                                  height: 16,
+                                  decoration: const BoxDecoration(
+                                    color: Colors.amber,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.star,
+                                    size: 10,
+                                    color: Colors.white,
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                        title: Text(
+                          participant.teamName ?? participant.memberName,
+                          style: AppTheme.titleMedium.copyWith(
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                        subtitle: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              participant.memberName,
+                              style: AppTheme.bodySmall.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                            if (participant.duprRating != null)
+                              Text(
+                                'DUPR: ${participant.duprRating!.toStringAsFixed(1)}',
+                                style: AppTheme.bodySmall.copyWith(
+                                  color: AppTheme.primaryColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                          ],
+                        ),
+                        trailing: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
+                          crossAxisAlignment: CrossAxisAlignment.end,
+                          children: [
+                            Container(
+                              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                              decoration: BoxDecoration(
+                                color: participant.paymentStatus == 'Paid' 
+                                    ? AppTheme.successColor.withOpacity(0.1)
+                                    : AppTheme.warningColor.withOpacity(0.1),
+                                borderRadius: BorderRadius.circular(12),
+                              ),
+                              child: Text(
+                                participant.paymentStatus == 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán',
+                                style: AppTheme.labelSmall.copyWith(
+                                  color: participant.paymentStatus == 'Paid' 
+                                      ? AppTheme.successColor
+                                      : AppTheme.warningColor,
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            Text(
+                              '${participant.joinedDate.day}/${participant.joinedDate.month}',
+                              style: AppTheme.labelSmall.copyWith(
+                                color: AppTheme.textSecondary,
+                              ),
+                            ),
+                          ],
+                        ),
+                        onTap: () => _showParticipantDetail(participant),
+                      ),
+                    );
+                  },
+                ),
+        ),
+      ],
     );
+  }
+
+  void _showAddParticipantDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Thêm đội tham gia'),
+        content: const Text('Chức năng này sẽ được phát triển sau.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showParticipantDetail(TournamentParticipant participant) {
+    showDialog(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: Text(participant.teamName ?? participant.memberName),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _buildDialogInfoRow('Thành viên', participant.memberName),
+            if (participant.teamName != null)
+              _buildDialogInfoRow('Tên đội', participant.teamName!),
+            if (participant.duprRating != null)
+              _buildDialogInfoRow('DUPR Rating', participant.duprRating!.toStringAsFixed(1)),
+            _buildDialogInfoRow('Trạng thái thanh toán', 
+              participant.paymentStatus == 'Paid' ? 'Đã thanh toán' : 'Chưa thanh toán'),
+            _buildDialogInfoRow('Ngày tham gia', 
+              '${participant.joinedDate.day}/${participant.joinedDate.month}/${participant.joinedDate.year}'),
+          ],
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Đóng'),
+          ),
+          if (_isAdmin() && participant.paymentStatus != 'Paid')
+            ElevatedButton(
+              onPressed: () {
+                Navigator.pop(context);
+                _markAsPaid(participant);
+              },
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppTheme.successColor,
+              ),
+              child: const Text('Đánh dấu đã thanh toán', style: TextStyle(color: Colors.white)),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _markAsPaid(TournamentParticipant participant) async {
+    try {
+      // TODO: Call API to mark as paid
+      setState(() {
+        participant.paymentStatus = 'Paid';
+      });
+      
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Đã cập nhật trạng thái thanh toán'),
+          backgroundColor: AppTheme.successColor,
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Lỗi: $e'),
+          backgroundColor: AppTheme.errorColor,
+        ),
+      );
+    }
   }
 
   Widget _buildResultsTab() {
@@ -540,38 +943,153 @@ class _TournamentDetailScreenState extends State<TournamentDetailScreen>
     );
   }
 
-  Widget? _buildJoinButton() {
-    if (_tournament == null || 
-        _tournament!.status != 'Registering') {
-      return null;
-    }
+  Widget _buildDialogInfoRow(String label, String value) {
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 120,
+            child: Text(
+              '$label:',
+              style: AppTheme.bodySmall.copyWith(
+                color: AppTheme.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: AppTheme.bodySmall.copyWith(
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 
+  Widget? _buildFloatingActionButtons() {
     final authProvider = Provider.of<AuthProvider>(context);
     final user = authProvider.user;
     
     // Check if user already joined
     final hasJoined = _participants.any((p) => p.memberId == user?.member?.id);
     
-    if (hasJoined) {
-      return null;
-    }
-
-    return FloatingActionButton.extended(
-      onPressed: _isJoining ? null : _joinTournament,
-      backgroundColor: AppTheme.primaryColor,
-      foregroundColor: Colors.white,
-      icon: _isJoining 
-          ? const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-              ),
-            )
-          : const Icon(Icons.add),
-      label: Text(_isJoining ? 'Đang tham gia...' : 'Tham gia'),
+    return Column(
+      mainAxisAlignment: MainAxisAlignment.end,
+      children: [
+        // Chat button (always visible for participants)
+        if (hasJoined || _isAdmin())
+          FloatingActionButton(
+            heroTag: "chat",
+            onPressed: () => _openTournamentChat(),
+            backgroundColor: AppTheme.warningColor,
+            child: const Icon(Icons.chat, color: Colors.white),
+          ),
+        
+        const SizedBox(height: 16),
+        
+        // Join/Leave button
+        if (_tournament!.status == 'Registering' && !hasJoined)
+          FloatingActionButton.extended(
+            heroTag: "join",
+            onPressed: _isJoining ? null : _joinTournament,
+            backgroundColor: AppTheme.primaryColor,
+            foregroundColor: Colors.white,
+            icon: _isJoining 
+                ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                    ),
+                  )
+                : const Icon(Icons.add),
+            label: Text(_isJoining ? 'Đang tham gia...' : 'Tham gia'),
+          )
+        else if (hasJoined && _tournament!.status == 'Registering')
+          FloatingActionButton.extended(
+            heroTag: "leave",
+            onPressed: () => _leaveTournament(),
+            backgroundColor: AppTheme.errorColor,
+            foregroundColor: Colors.white,
+            icon: const Icon(Icons.exit_to_app),
+            label: const Text('Rời khỏi'),
+          ),
+      ],
     );
+  }
+
+  void _openTournamentChat() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => TournamentChatScreen(
+          tournamentId: widget.tournamentId,
+          tournamentName: _tournament!.name,
+        ),
+      ),
+    );
+  }
+
+  Future<void> _leaveTournament() async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        title: const Text('Rời khỏi giải đấu'),
+        content: const Text(
+          'Bạn có chắc chắn muốn rời khỏi giải đấu này? '
+          'Nếu đã thanh toán phí tham gia, bạn sẽ được hoàn lại.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: const Text('Hủy'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(context, true),
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppTheme.errorColor,
+            ),
+            child: const Text('Rời khỏi', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true) {
+      try {
+        final tournamentProvider = Provider.of<TournamentProvider>(context, listen: false);
+        
+        final success = await tournamentProvider.leaveTournament(widget.tournamentId);
+
+        if (success && mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(
+              content: Text('Đã rời khỏi giải đấu'),
+              backgroundColor: AppTheme.successColor,
+            ),
+          );
+          
+          // Reload data
+          await _loadTournamentData();
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Lỗi: $e'),
+              backgroundColor: AppTheme.errorColor,
+            ),
+          );
+        }
+      }
+    }
   }
 
   Future<void> _joinTournament() async {

@@ -16,6 +16,7 @@ class AuthProvider with ChangeNotifier {
   bool get isAuthenticated => _isAuthenticated;
   bool get isLoading => _isLoading;
   String? get error => _error;
+  SignalRService get signalRService => _signalRService;
 
   Future<void> checkAuthStatus() async {
     _setLoading(true);
@@ -26,8 +27,8 @@ class AuthProvider with ChangeNotifier {
         _user = User.fromJson(userData);
         _isAuthenticated = true;
         
-        // Connect to SignalR
-        await _signalRService.connect();
+        // Connect to SignalR with user ID and token
+        await _signalRService.connect(_user!.id.toString(), token);
       }
     } catch (e) {
       _isAuthenticated = false;
@@ -55,8 +56,8 @@ class AuthProvider with ChangeNotifier {
       
       print('User role after login: ${_user?.role}'); // Debug log
       
-      // Connect to SignalR
-      await _signalRService.connect();
+      // Connect to SignalR with user ID and token
+      await _signalRService.connect(_user!.id.toString(), response['token']);
       
       _setLoading(false);
       return true;
@@ -104,25 +105,29 @@ class AuthProvider with ChangeNotifier {
     _setLoading(true);
     
     try {
-      // Disconnect SignalR
+      // Disconnect SignalR first
       await _signalRService.disconnect();
       
       // Clear token
       await _apiService.clearToken();
       
-      // Clear user data
+      // Clear ALL state
       _user = null;
       _isAuthenticated = false;
-      print('AuthProvider: User cleared, isAuthenticated = $_isAuthenticated'); // Debug log
+      _error = null; // Clear error state
+      
+      print('AuthProvider: All state cleared, isAuthenticated = $_isAuthenticated'); // Debug log
     } catch (e) {
       print('AuthProvider logout error: $e'); // Debug log
       // Even if there's an error, we should clear local data
       _user = null;
       _isAuthenticated = false;
+      _error = null;
       await _apiService.clearToken();
+    } finally {
+      _setLoading(false); // Always clear loading state
     }
     
-    _setLoading(false);
     print('AuthProvider.logout() completed, isAuthenticated = $_isAuthenticated'); // Debug log
   }
 

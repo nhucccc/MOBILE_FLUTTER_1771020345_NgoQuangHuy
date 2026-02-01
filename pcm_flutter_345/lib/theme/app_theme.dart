@@ -1,20 +1,28 @@
 import 'package:flutter/material.dart';
 
 class AppTheme {
-  // Colors - Đơn giản hơn
-  static const Color primaryColor = Color(0xFF2196F3);
-  static const Color secondaryColor = Color(0xFF03DAC6);
-  static const Color backgroundColor = Color(0xFFF5F5F5);
-  static const Color surfaceColor = Colors.white;
+  // Colors - Sửa lại thành light theme
+  static const Color primaryColor = Color(0xFF2E7D32); // Xanh lá đậm
+  static const Color secondaryColor = Color(0xFF4CAF50); // Xanh lá sáng
+  static const Color accentColor = Color(0xFFFF6F00); // Cam
+  static const Color backgroundColor = Color(0xFFF8FAFC); // Trắng xám nhạt
+  static const Color surfaceColor = Color(0xFFFFFFFF); // Trắng
+  static const Color cardColor = Color(0xFFFFFFFF); // Trắng
   static const Color errorColor = Color(0xFFB00020);
   static const Color successColor = Color(0xFF4CAF50);
   static const Color warningColor = Color(0xFFFF9800);
   static const Color infoColor = Color(0xFF2196F3);
   
-  // Text Colors
-  static const Color textPrimary = Color(0xFF212121);
-  static const Color textSecondary = Color(0xFF757575);
-  static const Color textHint = Color(0xFF9E9E9E);
+  // Màu cho member tiers
+  static const Color bronzeTier = Color(0xFFCD7F32);
+  static const Color silverTier = Color(0xFFC0C0C0);
+  static const Color goldTier = Color(0xFFFFD700);
+  static const Color diamondTier = Color(0xFF00FFFF);
+  
+  // Text Colors - Light theme
+  static const Color textPrimary = Color(0xFF2D3748);
+  static const Color textSecondary = Color(0xFF4A5568);
+  static const Color textHint = Color(0xFF718096);
   
   // Neutral Colors
   static const Color neutral50 = Color(0xFFFAFAFA);
@@ -161,59 +169,91 @@ class AppTheme {
     ),
   ];
   
-  // Theme Data
-  static ThemeData get lightTheme {
+  // Theme Data - Light theme
+  static ThemeData get theme {
     return ThemeData(
       useMaterial3: true,
-      colorScheme: ColorScheme.fromSeed(
-        seedColor: primaryColor,
-        brightness: Brightness.light,
-      ),
+      brightness: Brightness.light,
+      primaryColor: primaryColor,
       scaffoldBackgroundColor: backgroundColor,
-      appBarTheme: const AppBarTheme(
-        backgroundColor: primaryColor,
-        foregroundColor: Colors.white,
-        elevation: 2,
+      cardColor: cardColor,
+      
+      colorScheme: const ColorScheme.light(
+        primary: primaryColor,
+        secondary: accentColor,
+        surface: surfaceColor,
+        background: backgroundColor,
+        onPrimary: Colors.white,
+        onSecondary: Colors.white,
+        onSurface: textPrimary,
+        onBackground: textPrimary,
       ),
-      cardTheme: const CardThemeData(
-        color: surfaceColor,
-        elevation: 2,
+      
+      appBarTheme: const AppBarTheme(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        titleTextStyle: TextStyle(
+          color: textPrimary,
+          fontSize: 20,
+          fontWeight: FontWeight.bold,
+        ),
+        iconTheme: IconThemeData(color: textPrimary),
+      ),
+      
+      cardTheme: CardThemeData(
+        color: cardColor,
+        elevation: 4,
+        shadowColor: Colors.black.withOpacity(0.1),
         shape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(radiusMD)),
+          borderRadius: BorderRadius.circular(16),
         ),
       ),
+      
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: primaryColor,
           foregroundColor: Colors.white,
-          elevation: 2,
+          elevation: 4,
+          shadowColor: primaryColor.withOpacity(0.3),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(radiusMD),
+            borderRadius: BorderRadius.circular(12),
           ),
-          padding: const EdgeInsets.symmetric(
-            horizontal: spacing24,
-            vertical: spacing12,
-          ),
+          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 12),
         ),
       ),
+      
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surfaceColor,
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMD),
-          borderSide: const BorderSide(color: neutral300),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMD),
-          borderSide: const BorderSide(color: neutral300),
+          borderRadius: BorderRadius.circular(12),
+          borderSide: BorderSide(color: Colors.grey.withOpacity(0.3)),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(radiusMD),
+          borderRadius: BorderRadius.circular(12),
           borderSide: const BorderSide(color: primaryColor, width: 2),
         ),
-        contentPadding: const EdgeInsets.symmetric(
-          horizontal: spacing16,
-          vertical: spacing12,
+        labelStyle: const TextStyle(color: textSecondary),
+        hintStyle: const TextStyle(color: textHint),
+      ),
+      
+      bottomNavigationBarTheme: BottomNavigationBarThemeData(
+        backgroundColor: surfaceColor,
+        selectedItemColor: primaryColor,
+        unselectedItemColor: textSecondary,
+        type: BottomNavigationBarType.fixed,
+        elevation: 8,
+        selectedLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w600,
+        ),
+        unselectedLabelStyle: const TextStyle(
+          fontSize: 12,
+          fontWeight: FontWeight.w400,
         ),
       ),
     );
@@ -242,10 +282,50 @@ class AppTheme {
   }
   
   // Backward compatibility - Thêm các properties cũ
-  static const Color accentColor = secondaryColor;
   static const LinearGradient primaryGradient = LinearGradient(
     colors: [primaryColor, secondaryColor],
   );
+  
+  // Gradient cho background - Light theme
+  static const LinearGradient backgroundGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFF8FAFC),
+      Color(0xFFEDF2F7),
+    ],
+  );
+  
+  // Gradient cho cards - Light theme
+  static const LinearGradient cardGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFFFFFFFF),
+      Color(0xFFF7FAFC),
+    ],
+  );
+  
+  // Màu gradient cho hiệu ứng glass - Light theme
+  static const List<Color> glassGradient = [
+    Color(0x20000000),
+    Color(0x10000000),
+  ];
+  
+  // Shadow cho glass effect - Light theme
+  static List<BoxShadow> get glassShadow => [
+    BoxShadow(
+      color: Colors.black.withOpacity(0.1),
+      blurRadius: 20,
+      offset: const Offset(0, 8),
+    ),
+    BoxShadow(
+      color: Colors.white.withOpacity(0.8),
+      blurRadius: 1,
+      offset: const Offset(0, 1),
+    ),
+  ];
+  
   static const Color adminColor = Color(0xFFE91E63);
   static const LinearGradient adminGradient = LinearGradient(
     colors: [Color(0xFFE91E63), Color(0xFF9C27B0)],
@@ -258,8 +338,12 @@ class AppTheme {
   static const LinearGradient refereeGradient = LinearGradient(
     colors: [Color(0xFF2196F3), Color(0xFF3F51B5)],
   );
-  static const Color glassBorderColor = neutral300;
-  static const List<BoxShadow> glassShadow = shadowMD;
+  static const Color glassBorderColor = Color(0x30000000);
+  
+  // Animation durations
+  static const Duration fastAnimation = Duration(milliseconds: 200);
+  static const Duration normalAnimation = Duration(milliseconds: 300);
+  static const Duration slowAnimation = Duration(milliseconds: 500);
   
   // Additional getters for backward compatibility
   static const TextStyle headingMedium = headlineMedium;

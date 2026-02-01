@@ -3,6 +3,8 @@ using Microsoft.EntityFrameworkCore;
 using pickleball_api_345.Data;
 using pickleball_api_345.Hubs;
 using pickleball_api_345.Models;
+using static pickleball_api_345.Hubs.EventPayloads;
+using NotificationType = pickleball_api_345.Models.NotificationType;
 
 namespace pickleball_api_345.Services;
 
@@ -45,7 +47,7 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var notification = new
+            var notification = new NotificationPayload
             {
                 Type = type.ToString(),
                 Title = title,
@@ -53,14 +55,14 @@ public class NotificationService : INotificationService
                 Timestamp = DateTime.UtcNow
             };
 
-            await _hubContext.Clients.Group($"User_{userId}")
-                .SendAsync("ReceiveNotification", notification);
+            await _hubContext.Clients.Group(SignalRGroups.User(userId))
+                .SendAsync(SignalREvents.ReceiveNotification, notification);
 
-            _logger.LogInformation($"Sent notification to user {userId}: {title}");
+            _logger.LogInformation($"✅ Sent notification to user {userId}: {title}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error sending notification to user {userId}");
+            _logger.LogError(ex, $"❌ Error sending notification to user {userId}");
         }
     }
 
@@ -68,7 +70,7 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var notification = new
+            var notification = new NotificationPayload
             {
                 Type = type.ToString(),
                 Title = title,
@@ -76,12 +78,12 @@ public class NotificationService : INotificationService
                 Timestamp = DateTime.UtcNow
             };
 
-            await _hubContext.Clients.All.SendAsync("ReceiveNotification", notification);
-            _logger.LogInformation($"Broadcasted notification: {title}");
+            await _hubContext.Clients.All.SendAsync(SignalREvents.ReceiveNotification, notification);
+            _logger.LogInformation($"✅ Broadcasted notification: {title}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error broadcasting notification: {title}");
+            _logger.LogError(ex, $"❌ Error broadcasting notification: {title}");
         }
     }
 
@@ -89,7 +91,7 @@ public class NotificationService : INotificationService
     {
         try
         {
-            var notification = new
+            var notification = new NotificationPayload
             {
                 Type = NotificationType.Success.ToString(),
                 Title = "Nạp tiền thành công",
@@ -98,24 +100,32 @@ public class NotificationService : INotificationService
                 Data = new { Amount = amount }
             };
 
-            await _hubContext.Clients.Group($"User_{userId}")
-                .SendAsync("ReceiveNotification", notification);
+            await _hubContext.Clients.Group(SignalRGroups.User(userId))
+                .SendAsync(SignalREvents.ReceiveNotification, notification);
 
-            // Also update wallet balance in real-time
+            // ✅ FIXED: Also update wallet balance in real-time with standardized event
             var member = await _context.Members_345
                 .FirstOrDefaultAsync(m => m.UserId == userId);
 
             if (member != null)
             {
-                await _hubContext.Clients.Group($"User_{userId}")
-                    .SendAsync("UpdateWalletBalance", new { Balance = member.WalletBalance });
+                var walletUpdate = new WalletUpdatePayload
+                {
+                    Balance = member.WalletBalance,
+                    Amount = amount,
+                    TransactionType = "Deposit",
+                    Timestamp = DateTime.UtcNow
+                };
+
+                await _hubContext.Clients.Group(SignalRGroups.User(userId))
+                    .SendAsync(SignalREvents.UpdateWalletBalance, walletUpdate);
             }
 
-            _logger.LogInformation($"Sent wallet deposit notification to user {userId}: {amount:N0} VND");
+            _logger.LogInformation($"✅ Sent wallet deposit notification to user {userId}: {amount:N0} VND");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error sending wallet deposit notification to user {userId}");
+            _logger.LogError(ex, $"❌ Error sending wallet deposit notification to user {userId}");
         }
     }
 
@@ -123,14 +133,14 @@ public class NotificationService : INotificationService
     {
         try
         {
-            await _hubContext.Clients.Group($"Match_{matchId}")
-                .SendAsync("UpdateMatchScore", matchData);
+            await _hubContext.Clients.Group(SignalRGroups.Match(int.Parse(matchId)))
+                .SendAsync(SignalREvents.MatchScoreUpdated, matchData);
 
-            _logger.LogInformation($"Sent match score update for match {matchId}");
+            _logger.LogInformation($"✅ Sent match score update for match {matchId}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error sending match score update for match {matchId}");
+            _logger.LogError(ex, $"❌ Error sending match score update for match {matchId}");
         }
     }
 
@@ -138,14 +148,14 @@ public class NotificationService : INotificationService
     {
         try
         {
-            await _hubContext.Clients.Group($"Tournament_{tournamentId}")
-                .SendAsync("UpdateTournamentBracket", tournamentData);
+            await _hubContext.Clients.Group(SignalRGroups.Tournament(int.Parse(tournamentId)))
+                .SendAsync(SignalREvents.TournamentBracketUpdated, tournamentData);
 
-            _logger.LogInformation($"Sent tournament update for tournament {tournamentId}");
+            _logger.LogInformation($"✅ Sent tournament update for tournament {tournamentId}");
         }
         catch (Exception ex)
         {
-            _logger.LogError(ex, $"Error sending tournament update for tournament {tournamentId}");
+            _logger.LogError(ex, $"❌ Error sending tournament update for tournament {tournamentId}");
         }
     }
 

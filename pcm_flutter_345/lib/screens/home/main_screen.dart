@@ -2,12 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../../providers/auth_provider.dart';
 import '../../theme/app_theme.dart';
-import '../../widgets/simple_bottom_nav.dart';
-import '../home/simple_dashboard_screen.dart';
-import '../booking/new_booking_screen.dart';
+import '../../widgets/large_bottom_nav.dart';
+import '../../widgets/premium_bottom_nav.dart';
+import '../home/fixed_dashboard_home_screen.dart';
+import '../booking/simple_booking_screen.dart';
+import '../tournament/enhanced_tournaments_screen.dart';
 import '../wallet/wallet_screen.dart';
 import '../profile/profile_screen.dart';
-import '../admin/admin_dashboard_screen.dart';
+import '../admin/enhanced_admin_dashboard_screen.dart';
+import '../treasurer/enhanced_treasurer_dashboard_screen.dart';
+import '../referee/enhanced_referee_dashboard_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -19,6 +23,13 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   int _currentIndex = 0;
 
+  // Method để change tab từ bên ngoài
+  void changeTab(int index) {
+    setState(() {
+      _currentIndex = index;
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<AuthProvider>(
@@ -28,17 +39,55 @@ class _MainScreenState extends State<MainScreen> {
         
         print('MainScreen - User: ${user?.fullName}, Role: $role'); // Debug log
         
-        // Define screens based on role
-        List<Widget> screens = [
-          const SimpleDashboardScreen(),
-          const NewBookingScreen(),
-          const WalletScreen(),
-          const ProfileScreen(),
-        ];
+        // Define screens based on role with enhanced versions
+        List<Widget> screens;
         
-        // Add admin screen if user is admin
-        if (role == 'admin') {
-          screens.add(const AdminDashboardScreen());
+        switch (role) {
+          case 'admin':
+            screens = [
+              const EnhancedAdminDashboardScreen(),
+              const SimpleBookingScreen(),
+              const EnhancedTournamentsScreen(),
+              const WalletScreen(),
+              const ProfileScreen(),
+            ];
+            break;
+            
+          case 'treasurer':
+            screens = [
+              const EnhancedTreasurerDashboardScreen(),
+              const SimpleBookingScreen(),
+              const EnhancedTournamentsScreen(),
+              const WalletScreen(),
+              const ProfileScreen(),
+            ];
+            break;
+            
+          case 'referee':
+            screens = [
+              const EnhancedRefereeDashboardScreen(),
+              const SimpleBookingScreen(),
+              const EnhancedTournamentsScreen(),
+              const WalletScreen(),
+              const ProfileScreen(),
+            ];
+            break;
+            
+          default: // Regular user
+            screens = [
+              FixedDashboardHomeScreen(
+                onTabChange: (index) {
+                  setState(() {
+                    _currentIndex = index;
+                  });
+                },
+              ), // Sử dụng fixed version với light theme và bảng xếp hạng thực tế
+              const SimpleBookingScreen(),
+              const EnhancedTournamentsScreen(),
+              const WalletScreen(),
+              const ProfileScreen(),
+            ];
+            break;
         }
         
         return Scaffold(
@@ -46,14 +95,13 @@ class _MainScreenState extends State<MainScreen> {
             index: _currentIndex,
             children: screens,
           ),
-          bottomNavigationBar: SimpleBottomNav(
+          bottomNavigationBar: LargeBottomNav(
             currentIndex: _currentIndex,
             onTap: (index) {
               setState(() {
                 _currentIndex = index;
               });
             },
-            userRole: role,
           ),
         );
       },

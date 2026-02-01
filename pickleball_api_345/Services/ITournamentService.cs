@@ -11,5 +11,5 @@ public interface ITournamentService
     Task<bool> JoinTournamentAsync(int tournamentId, int memberId, string? teamName = null);
     Task<bool> GenerateScheduleAsync(int tournamentId);
     Task<List<MatchDto>> GetTournamentMatchesAsync(int tournamentId);
-    Task<bool> UpdateMatchResultAsync(int matchId, UpdateMatchResultDto request);
+    Task<bool> UpdateMatchResultAsync(int matchId, UpdateMatchScoreDto request);
 }

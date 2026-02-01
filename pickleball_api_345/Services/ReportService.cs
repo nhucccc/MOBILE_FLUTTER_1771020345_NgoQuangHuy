@@ -173,7 +173,7 @@ public class ReportService : IReportService
             TotalParticipants = tournament.Participants.Count,
             TotalRevenue = tournament.Participants.Count(p => p.PaymentStatus == PaymentStatus.Paid) * tournament.EntryFee,
             PrizePool = tournament.PrizePool,
-            Participants = tournament.Participants.Select(p => new TournamentParticipantDto
+            Participants = tournament.Participants.Select(p => new TournamentReportParticipantDto
             {
                 FullName = p.Member.FullName,
                 Email = p.Member.User.Email ?? "",
