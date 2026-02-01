@@ -1,4 +1,4 @@
-# MOBILE_FLUTTER_1771020345_NguyenVanHuy
+# MOBILE_FLUTTER_1771020345_NgoQuangHuy
 
 ## Mô tả dự án
 Ứng dụng quản lý sân pickleball với Flutter (Frontend) và ASP.NET Core Web API (Backend).
@@ -147,7 +147,7 @@ APK file sẽ được tạo tại: `build/app/outputs/flutter-apk/app-release.a
 
 ## Liên hệ
 - MSSV: 1771020345
-- Tên: Nguyễn Văn Huy
+- Tên: Ngọ Quang Huy
 - Email: huy@example.com
 
 ---
